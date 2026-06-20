@@ -62,7 +62,7 @@ class UnifiIntegration:
         return {
             "integration": "unifi",
             "available": True,
-            "site_summaries": [
+            "sites": [
                 {
                     "name": s.name,
                     "total_devices": s.total_devices,
@@ -87,7 +87,7 @@ class UnifiIntegration:
                 }
                 for s in sites
             ],
-            "device_summaries": [
+            "devices": [
                 {
                     "name": d.name,
                     "model": d.model,
