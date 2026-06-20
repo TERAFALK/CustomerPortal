@@ -470,7 +470,8 @@ const API = '';
 let authToken = localStorage.getItem('tf_token');
 let currentCustomerId = null;
 let customersCache = [];
-let _navGen = 0;  // ökas vid varje navigation — används för att avbryta inaktuella async-körningar
+let _navGen = 0;
+const _unifiCache = new Map();  // customerId → {data, ts} — cachas 5 min
 
 // ── API-hjälpare ──────────────────────────────────────────────────────────
 
@@ -819,58 +820,88 @@ async function loadCustomerDetail(customerId) {
 }
 
 async function loadUnifiSection(customerId, gen) {
+  const CACHE_TTL = 5 * 60 * 1000;
+  const cached = _unifiCache.get(customerId);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    renderUnifiData(cached.data);
+    return;
+  }
   try {
     const data = await api(`/api/customers/${customerId}/integrations/unifi/live`);
     if (_navGen !== gen) return;
-
-    const sites = data.sites || [];
-    const devices = data.devices || [];
-    const site = sites[0] || {};
-    const wans = site.wans || [];
-
+    _unifiCache.set(customerId, { data, ts: Date.now() });
+    renderUnifiData(data);
+  } catch (e) {
+    if (_navGen !== gen) return;
     document.getElementById('cd-unifi-section').style.display = 'block';
+    document.getElementById('cd-unifi-section').innerHTML = `<div class="alert al-e"><i class="ti ti-alert-circle"></i><span>Kunde inte hämta UniFi-data: ${e.message}</span></div>`;
+  }
+}
 
-    // Hero-stats
-    const heroEl = document.getElementById('cd-hero-stats');
-    const wanUptime = wans.length ? (wans[0].uptime_percentage ?? 0) : null;
-    heroEl.innerHTML = `
-      ${wanUptime !== null ? `<div><div class="hs-v">${wanUptime}<span style="font-size:15px">%</span></div><div class="hs-l">WAN-uptime</div></div>` : ''}
-      <div><div class="hs-v">${data.total_devices ?? devices.length}</div><div class="hs-l">Enheter</div></div>
-      <div><div class="hs-v">${devices.filter(d => d.is_online).length}</div><div class="hs-l">Online</div></div>
-      <div><div class="hs-v">${devices.filter(d => d.needs_update).length}</div><div class="hs-l">Behöver uppdatering</div></div>
-    `;
+function renderUnifiData(data) {
+  const hosts = data.hosts || [];
+  const devices = data.devices || [];
 
-    // WAN-rader
-    const wanEl = document.getElementById('cd-wan-rows');
-    const badgeEl = document.getElementById('cd-wan-status-badge');
-    const onlineWans = wans.filter(w => w.uptime_percentage === 100).length;
-    badgeEl.textContent = `${onlineWans}/${wans.length} aktiv`;
-    badgeEl.className = 'b ' + (onlineWans === wans.length ? 'b-ok' : 'b-warn');
-    wanEl.innerHTML = wans.map(w => `
+  document.getElementById('cd-unifi-section').style.display = 'block';
+
+  // ── Hero-statistik (summerat över alla hosts) ──
+  const allWans = hosts.flatMap(h => h.wans || []);
+  const onlineWans = allWans.filter(w => w.uptime_percentage === 100).length;
+  const heroEl = document.getElementById('cd-hero-stats');
+  heroEl.innerHTML = `
+    ${allWans.length ? `<div><div class="hs-v">${onlineWans}/${allWans.length}</div><div class="hs-l">WAN online</div></div>` : ''}
+    <div><div class="hs-v">${data.total_devices ?? devices.length}</div><div class="hs-l">Enheter</div></div>
+    <div><div class="hs-v">${devices.filter(d => d.is_online).length}</div><div class="hs-l">Online</div></div>
+    <div><div class="hs-v">${devices.filter(d => d.needs_update).length}</div><div class="hs-l">Behöver uppdatering</div></div>
+  `;
+
+  // ── WAN-panel: visa per host om flera, annars direkt ──
+  const wanEl = document.getElementById('cd-wan-rows');
+  const badgeEl = document.getElementById('cd-wan-status-badge');
+  badgeEl.textContent = allWans.length ? `${onlineWans}/${allWans.length} aktiv` : '—';
+  badgeEl.className = 'b ' + (onlineWans === allWans.length && allWans.length ? 'b-ok' : 'b-warn');
+
+  const multiHost = hosts.length > 1;
+  wanEl.innerHTML = hosts.map(h => {
+    const wans = h.wans || [];
+    if (!wans.length) return '';
+    const hostHeader = multiHost
+      ? `<div style="font-size:11px;font-weight:700;color:var(--blue);margin:8px 0 4px;text-transform:uppercase;letter-spacing:.06em">${escapeHtml(h.host_name)}</div>`
+      : '';
+    const wanRows = wans.map(w => `
       <div class="wan-r">
         <span class="wan-nm">${escapeHtml(w.name)}</span>
         <span class="b ${w.uptime_percentage === 100 ? 'b-ok' : 'b-err'}" style="margin-right:8px;flex-shrink:0">${w.uptime_percentage === 100 ? 'Online' : 'Nere'}</span>
-        <div class="ub-w"><div class="ub-bg"><div class="ub ${w.uptime_percentage === 100 ? 'ub-ok' : 'ub-dn'}" style="width:${w.uptime_percentage || 0}%"></div></div><span style="font-size:12px;font-weight:700;width:38px;text-align:right">${w.uptime_percentage ?? 0}%</span></div>
+        <div class="ub-w"><div class="ub-bg"><div class="ub ${w.uptime_percentage === 100 ? 'ub-ok' : 'ub-dn'}" style="width:${w.uptime_percentage || 0}%"></div></div>
+        <span style="font-size:12px;font-weight:700;width:38px;text-align:right">${w.uptime_percentage ?? 0}%</span></div>
+        ${w.isp_name ? `<span style="font-size:11px;color:var(--muted);flex-shrink:0;margin-left:6px">${escapeHtml(w.isp_name)}</span>` : ''}
       </div>
-      ${w.has_issues ? `<div class="alert al-e" style="margin-top:8px;margin-bottom:8px"><i class="ti ti-alert-circle"></i><span>${escapeHtml(w.name)} har ${w.issue_count} avbrottstillfällen registrerade</span></div>` : ''}
-    `).join('') || '<div style="color:var(--muted);font-size:12px">Ingen WAN-data tillgänglig</div>';
+      ${w.has_issues ? `<div class="alert al-e" style="margin:4px 0 6px"><i class="ti ti-alert-circle"></i><span>${escapeHtml(w.name)} har ${w.issue_count} avbrottstillfällen</span></div>` : ''}
+    `).join('');
+    return hostHeader + wanRows;
+  }).join('') || '<div style="color:var(--muted);font-size:12px">Ingen WAN-data tillgänglig</div>';
 
-    // Enhetstabell
-    const devicesTbody = document.getElementById('cd-devices-tbody');
-    devicesTbody.innerHTML = devices.map(d => `
+  // ── Enhetstabell: grupperad per host ──
+  const devicesTbody = document.getElementById('cd-devices-tbody');
+  const totalUpdates = devices.filter(d => d.needs_update).length;
+  document.getElementById('cd-devices-tag').textContent = totalUpdates ? `${totalUpdates} behöver uppdatering` : 'Alla uppdaterade';
+
+  devicesTbody.innerHTML = hosts.map(h => {
+    const hDevices = h.devices || [];
+    if (!hDevices.length) return '';
+    const groupHeader = multiHost
+      ? `<tr><td colspan="5" style="background:var(--tint);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--blue);padding:6px 14px">${escapeHtml(h.host_name)}</td></tr>`
+      : '';
+    const rows = hDevices.map(d => `
       <tr>
         <td><div class="dn">${escapeHtml(d.name)}</div></td>
         <td style="color:#555">${escapeHtml(d.model || '—')}</td>
         <td>${d.product_line === 'protect' ? '<span class="pl pl-p">Protect</span>' : '<span class="pl pl-n">Nätverk</span>'}</td>
         <td style="font-family:monospace;font-size:12px">${escapeHtml(d.firmware_version || '—')} ${d.needs_update ? '<span style="color:#F59E0B;font-weight:700">↑</span>' : '<span style="color:#22C55E">✓</span>'}</td>
         <td>${d.is_online ? '<span class="b b-ok">Online</span>' : '<span class="b b-err">Offline</span>'}</td>
-      </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Inga enheter hittades</td></tr>';
-
-    document.getElementById('cd-devices-tag').textContent = devices.every(d => !d.needs_update) ? 'Alla uppdaterade' : `${devices.filter(d => d.needs_update).length} behöver uppdatering`;
-  } catch (e) {
-    document.getElementById('cd-unifi-section').style.display = 'block';
-    document.getElementById('cd-unifi-section').innerHTML = `<div class="alert al-e"><i class="ti ti-alert-circle"></i><span>Kunde inte hämta UniFi-data: ${e.message}</span></div>`;
-  }
+      </tr>`).join('');
+    return groupHeader + rows;
+  }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Inga enheter hittades</td></tr>';
 }
 
 // ── Integrationer (generisk vy — samma kod för alla fyra typer) ───────────

@@ -245,25 +245,34 @@ class UnifiClient:
     # ------------------------------------------------------------------
 
     def list_devices(self, host_ids: list[str] | None = None) -> list[DeviceSummary]:
-        """
-        Hämtar enskilda enheter (switchar, access points, gateways, kameror)
-        inklusive firmware-status. UniFi svarar med EN post per host, och
-        varje host-post innehåller en lista av dess enheter under "devices".
-        Denna metod packar upp det till en flat lista av DeviceSummary.
+        """Flat lista av alla enheter — bakåtkompatibel."""
+        result = []
+        for group in self.list_devices_grouped(host_ids):
+            result.extend(group["devices"])
+        return result
 
-        host_ids: lista av host-id:n att filtrera på. Om None hämtas alla
-        enheter nyckeln har åtkomst till.
+    def list_devices_grouped(
+        self, host_ids: list[str] | None = None
+    ) -> list[dict[str, Any]]:
+        """
+        Returnerar enheter grupperade per host: [{host_id, host_name, devices}].
+        Bevarar den naturliga grupperingen från UniFi-API:t (en host = en Fabric).
         """
         params: list[tuple[str, str]] = [("pageSize", "100")]
         if host_ids:
             params.extend(("hostIds[]", hid) for hid in host_ids)
 
         body = self._request("GET", "/devices", params=params)
-        results: list[DeviceSummary] = []
+        result: list[dict[str, Any]] = []
         for host_entry in body.get("data", []):
-            for raw_device in host_entry.get("devices", []):
-                results.append(self._parse_device(raw_device))
-        return results
+            result.append({
+                "host_id": host_entry.get("hostId", ""),
+                "host_name": host_entry.get("hostName", ""),
+                "devices": [
+                    self._parse_device(d) for d in host_entry.get("devices", [])
+                ],
+            })
+        return result
 
     @staticmethod
     def _parse_device(raw: dict[str, Any]) -> DeviceSummary:

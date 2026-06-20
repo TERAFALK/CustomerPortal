@@ -86,7 +86,11 @@ tr:last-child td{border-bottom:none}
 UNIFI_SECTION_TEMPLATE = """
 <div class="section">
   <div class="section-title">🛜 Nätverk — UniFi</div>
-  {% for wan in wans %}
+  {% for host in hosts %}
+  {% if hosts|length > 1 %}
+  <div style="font-size:12px;font-weight:700;color:#0047A3;margin:12px 0 8px;padding-bottom:4px;border-bottom:1px solid #dde8f5">{{ host.host_name }}</div>
+  {% endif %}
+  {% for wan in host.wans %}
   <div class="wan-row">
     <span class="wan-name">{{ wan.name }}</span>
     {% if wan.uptime_percentage == 100 %}
@@ -102,20 +106,11 @@ UNIFI_SECTION_TEMPLATE = """
   <div class="wan-alert">⚠ {{ wan.name }} har haft {{ wan.issue_count }} avbrottstillfällen under perioden</div>
   {% endif %}
   {% endfor %}
-
-  {% if isp_avg_latency is not none %}
-  <div class="metrics-row" style="margin-top:14px">
-    <div class="mbox"><div class="mbox-val">{{ isp_avg_latency }} ms</div><div class="mbox-lbl">Snittlatens</div></div>
-    <div class="mbox"><div class="mbox-val">{{ isp_packet_loss }}%</div><div class="mbox-lbl">Paketförlust</div></div>
-    <div class="mbox"><div class="mbox-val">{{ isp_uptime }}%</div><div class="mbox-lbl">ISP-uptime</div></div>
-  </div>
-  {% endif %}
-
-  <div style="margin-top:14px">
+  <div style="margin-top:10px">
     <table>
       <thead><tr><th>Enhet</th><th>Modell</th><th>Typ</th><th>Firmware</th><th>Status</th></tr></thead>
       <tbody>
-        {% for d in device_summaries %}
+        {% for d in host.devices %}
         <tr>
           <td><div class="dev-name">{{ d.name }}</div></td>
           <td style="color:#555">{{ d.model or '—' }}</td>
@@ -127,11 +122,19 @@ UNIFI_SECTION_TEMPLATE = """
       </tbody>
     </table>
   </div>
-
-  {% if ips_rules %}
-  <div class="ips-box" style="margin-top:14px">
-    <div class="ips-val">{{ ips_rules | int }}</div>
+  {% if host.ips_rules_count %}
+  <div class="ips-box" style="margin-top:10px">
+    <div class="ips-val">{{ host.ips_rules_count | int }}</div>
     <div class="ips-lbl">Aktiva IPS-regler · trafiken inspekteras i realtid</div>
+  </div>
+  {% endif %}
+  {% endfor %}
+
+  {% if isp_avg_latency is not none %}
+  <div class="metrics-row" style="margin-top:14px">
+    <div class="mbox"><div class="mbox-val">{{ isp_avg_latency }} ms</div><div class="mbox-lbl">Snittlatens</div></div>
+    <div class="mbox"><div class="mbox-val">{{ isp_packet_loss }}%</div><div class="mbox-lbl">Paketförlust</div></div>
+    <div class="mbox"><div class="mbox-val">{{ isp_uptime }}%</div><div class="mbox-lbl">ISP-uptime</div></div>
   </div>
   {% endif %}
 </div>
@@ -243,8 +246,7 @@ def _month_label(period: str) -> str:
 
 
 def _render_unifi(data: dict, env: Environment) -> tuple[str, list[str]]:
-    site = data["site_summaries"][0] if data.get("site_summaries") else {}
-    wans = site.get("wans", [])
+    hosts = data.get("hosts", [])
     service_items = ["Firmware-patchning", "24/7 övervakning", "IPS-uppdateringar", "WAN-monitoring", "Fri felsökningstid"]
 
     isp_avg_latency = isp_packet_loss = isp_uptime = None
@@ -263,9 +265,7 @@ def _render_unifi(data: dict, env: Environment) -> tuple[str, list[str]]:
             pass
 
     html = env.from_string(UNIFI_SECTION_TEMPLATE).render(
-        wans=wans,
-        device_summaries=data.get("device_summaries", []),
-        ips_rules=site.get("ips_rules_count"),
+        hosts=hosts,
         isp_avg_latency=isp_avg_latency,
         isp_packet_loss=isp_packet_loss,
         isp_uptime=isp_uptime,
