@@ -408,24 +408,11 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
         <span id="cd-error-msg"></span>
       </div>
 
-      <div id="cd-users-card" class="card" style="display:none;margin-top:14px">
-        <div class="ch">
-          <i class="ti ti-users" style="color:var(--blue);font-size:16px"></i>
-          <span class="cht" style="margin-left:8px;flex:1">Användare med tillgång</span>
-          <button class="btn btn-g btn-sm" onclick="nav('users')"><i class="ti ti-settings"></i> Hantera</button>
-        </div>
-        <div class="cb0">
-          <table class="tbl">
-            <thead><tr><th>Namn</th><th>E-post</th><th>Status</th></tr></thead>
-            <tbody id="cd-users-tbody"><tr><td colspan="3" style="text-align:center;color:var(--muted);padding:16px">Laddar...</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-
       <div style="display:flex;gap:9px;margin-top:14px" id="cd-admin-actions">
         <button class="btn btn-p" id="cd-send-btn" onclick="sendReportForCurrent()"><i class="ti ti-send"></i> Generera rapport</button>
         <button class="btn btn-g" onclick="openEditCustomer()"><i class="ti ti-edit"></i> Redigera</button>
         <button class="btn btn-g" onclick="nav('integrations')"><i class="ti ti-plug"></i> Integrationer</button>
+        <button class="btn btn-g" onclick="nav('users')"><i class="ti ti-users"></i> Användare</button>
         <button class="btn btn-danger" onclick="deleteCurrentCustomer()"><i class="ti ti-trash"></i> Ta bort kund</button>
       </div>
     </div>
