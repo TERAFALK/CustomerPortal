@@ -210,7 +210,10 @@ class UnifiClient:
 
         wans: list[WanStatus] = []
         for wan_name, wan_data in (stats.get("wans") or {}).items():
-            wan_isp = wan_data.get("ispInfo", isp_info) or {}
+            # Använd ENDAST WAN-portens egna ISP-info — ingen fallback till
+            # site-nivåns ISP, annars ärver en oanvänd WAN2 site-ISP:n och
+            # ser ut att vara aktiv.
+            wan_isp = wan_data.get("ispInfo") or {}
             issues = wan_data.get("wanIssues") or []
             wans.append(
                 WanStatus(

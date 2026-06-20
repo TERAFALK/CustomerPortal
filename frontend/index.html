@@ -1057,7 +1057,7 @@ async function loadReports() {
           <div style="display:flex;align-items:center;gap:8px">
             ${statusBadge}
             <button class="btn btn-g btn-sm" onclick="previewReport('${r.customer_id}')"><i class="ti ti-eye"></i> Förhandsgranska</button>
-            ${r.pdf_path ? `<button class="btn btn-g btn-ico" onclick="downloadReportPdf('${r.id}')"><i class="ti ti-download" style="font-size:13px"></i></button>` : ''}
+            ${r.pdf_path ? `<button class="btn btn-g btn-ico" onclick="downloadReportPdf('${r.id}','${escapeHtml(name)}','${escapeHtml(r.period)}')"><i class="ti ti-download" style="font-size:13px"></i></button>` : ''}
           </div>
         </div>`;
     }).join('');
@@ -1086,15 +1086,18 @@ async function previewReport(customerId) {
   }
 }
 
-function downloadReportPdf(reportId) {
+function downloadReportPdf(reportId, customerName, period) {
   const url = `${API}/api/reports/${reportId}/pdf`;
+  const slug = (customerName || 'kund').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const filename = `terafalk-rapport-${period || ''}-${slug}.pdf`;
   fetch(url, { headers: { 'Authorization': 'Bearer ' + authToken } })
     .then(r => { if (!r.ok) throw new Error('Kunde inte hämta PDF'); return r.blob(); })
     .then(blob => {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'rapport.pdf';
+      a.download = filename;
       a.click();
+      URL.revokeObjectURL(a.href);
     })
     .catch(e => errToast('Nedladdning misslyckades', e));
 }

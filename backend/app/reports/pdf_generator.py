@@ -24,119 +24,140 @@ TERAFALK_LOGO_SVG = """<svg viewBox="0 0 695.39 84.24" width="170" height="20" x
 
 BASE_STYLE = """
 @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;600;700&display=swap');
+@page{size:A4;margin:0}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Exo 2',Arial,sans-serif;color:#141414;font-size:13px;line-height:1.5;background:#fff}
-.page{max-width:760px;margin:0 auto}
-.header{background:#fff;border-bottom:2px solid #0047A3;padding:24px 36px;display:flex;align-items:center;justify-content:space-between}
-.header-right{text-align:right;color:#888;font-size:11px}
-.header-right .period{font-size:14px;font-weight:700;color:#0047A3;display:block;margin-bottom:2px}
-.hero{background:#F4F8FF;padding:22px 36px;border-bottom:1px solid #dde8f5}
-.hero-customer{font-size:21px;font-weight:700;color:#141414;margin-bottom:2px}
-.hero-sub{font-size:12px;color:#666;margin-bottom:14px}
-.hero-chips{display:flex;gap:6px;flex-wrap:wrap}
-.hero-chip{font-size:10px;font-weight:700;background:#fff;border:1px solid #BBF7D0;color:#166534;padding:3px 9px;border-radius:12px}
-.content{padding:26px 36px}
-.section{margin-bottom:22px}
-.section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#0047A3;border-bottom:1px solid #dde8f5;padding-bottom:6px;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+html,body{width:100%}
+body{font-family:'Exo 2',Arial,sans-serif;color:#141414;font-size:11.5px;line-height:1.5;background:#fff}
+.page{width:100%}
+.header{background:#fff;border-bottom:3px solid #0047A3;padding:26px 44px;display:flex;align-items:center;justify-content:space-between}
+.header-right{text-align:right;color:#999;font-size:10px;text-transform:uppercase;letter-spacing:0.07em}
+.header-right .period{font-size:15px;font-weight:700;color:#0047A3;display:block;margin-bottom:3px;letter-spacing:0}
+.hero{background:#F4F8FF;padding:26px 44px;border-bottom:1px solid #dde8f5}
+.hero-customer{font-size:23px;font-weight:700;color:#141414;margin-bottom:3px}
+.hero-sub{font-size:11px;color:#888;margin-bottom:16px}
+.hero-chips{display:flex;gap:7px;flex-wrap:wrap}
+.hero-chip{font-size:10px;font-weight:700;background:#fff;border:1px solid #BBF7D0;color:#166534;padding:4px 11px;border-radius:12px}
+.content{padding:30px 44px}
+.section{margin-bottom:30px}
+.section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#0047A3;border-bottom:1px solid #dde8f5;padding-bottom:8px;margin-bottom:16px}
+.host-name{font-size:12px;font-weight:700;color:#141414;margin:18px 0 10px}
+.subhead{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#aaa;margin:16px 0 8px}
 table{width:100%;border-collapse:collapse}
-th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#888;padding:8px 10px;text-align:left;border-bottom:2px solid #dde8f5}
-td{padding:9px 10px;font-size:12px;border-bottom:1px solid #f0f4fa}
+th{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#aaa;padding:7px 12px;text-align:left;border-bottom:1px solid #e2eaf4}
+td{padding:9px 12px;font-size:11.5px;border-bottom:1px solid #f2f6fb;vertical-align:middle}
 tr:last-child td{border-bottom:none}
-.dev-name{font-weight:700}
-.badge-sm{font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px}
+.dev-name{font-weight:600}
+.grp-row td{background:#f7faff;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:#6b86b0;padding:6px 12px}
+.badge-sm{font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap}
 .b-ok{background:#ECFDF5;color:#15803D}
 .b-warn{background:#FFFBEB;color:#92400E}
-.b-net{background:#EEF4FF;color:#0047A3}
-.b-prot{background:#F0F9FF;color:#0369a1}
-.fw-ok{color:#22C55E;font-weight:700}
-.fw-warn{color:#F59E0B;font-weight:700}
-.wan-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f0f4fa}
+.b-off{background:#FFF1F2;color:#BE123C}
+.pl-tag{font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:5px}
+.fw-mono{font-family:'Courier New',monospace;font-size:10.5px;color:#555}
+.wan-row{display:flex;align-items:center;gap:14px;padding:11px 0;border-bottom:1px solid #f2f6fb}
 .wan-row:last-child{border-bottom:none}
-.wan-name{font-weight:700;width:60px;flex-shrink:0}
-.wan-badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;flex-shrink:0;width:64px;text-align:center}
+.wan-name{font-weight:700;width:54px;flex-shrink:0;font-size:12px}
+.wan-badge{font-size:10px;font-weight:700;padding:2px 9px;border-radius:12px;flex-shrink:0;width:60px;text-align:center}
 .wan-ok{background:#ECFDF5;color:#15803D}
 .wan-dn{background:#FFF1F2;color:#BE123C}
 .upbar-bg{flex:1;height:5px;background:#e8eef7;border-radius:3px;overflow:hidden}
 .upbar{height:100%;border-radius:3px}
 .upbar-ok{background:#22C55E}
 .upbar-dn{background:#EF4444}
-.wan-pct{font-size:12px;font-weight:700;width:42px;text-align:right;flex-shrink:0}
-.wan-isp{font-size:11px;color:#888;flex-shrink:0}
-.wan-alert{background:#FFF1F2;border:1px solid #FECDD3;border-radius:6px;padding:8px 12px;font-size:12px;color:#BE123C;margin-top:8px}
-.metrics-row{display:flex;gap:10px;margin-bottom:10px}
-.mbox{flex:1;background:#F4F8FF;border-radius:6px;padding:12px 14px;text-align:center}
-.mbox-val{font-size:20px;font-weight:700}
-.mbox-lbl{font-size:10px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-top:2px}
-.ips-box{background:#F4F8FF;border-left:3px solid #0047A3;padding:12px 16px;border-radius:0 6px 6px 0}
+.wan-pct{font-size:12px;font-weight:700;width:44px;text-align:right;flex-shrink:0}
+.wan-isp{font-size:10px;color:#999;flex-shrink:0;min-width:90px;text-align:right}
+.wan-alert{background:#FFF1F2;border:1px solid #FECDD3;border-radius:6px;padding:8px 12px;font-size:11px;color:#BE123C;margin-top:6px}
+.metrics-row{display:flex;gap:12px;margin-top:8px}
+.mbox{flex:1;background:#F4F8FF;border-radius:8px;padding:14px 16px;text-align:center}
+.mbox-val{font-size:22px;font-weight:700;color:#0047A3}
+.mbox-lbl{font-size:9px;color:#999;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;margin-top:3px}
+.ips-box{background:#F4F8FF;border-left:3px solid #0047A3;padding:12px 16px;border-radius:0 6px 6px 0;margin-top:12px}
 .ips-val{font-size:18px;font-weight:700;color:#0047A3}
-.ips-lbl{font-size:11px;color:#666;margin-top:2px}
-.service-box{background:#F1F9F0;border:1px solid #BBF7D0;border-radius:6px;padding:14px 16px}
-.service-title{font-size:12px;font-weight:700;color:#15803D;margin-bottom:6px}
-.service-items{display:flex;flex-wrap:wrap;gap:6px}
-.service-item{font-size:11px;background:#fff;border:1px solid #BBF7D0;border-radius:12px;padding:3px 10px;color:#166534}
-.footer{background:#141414;padding:16px 36px;display:flex;align-items:center;justify-content:space-between}
-.footer-left{font-size:11px;color:rgba(255,255,255,0.5)}
-.footer-right{font-size:11px;color:rgba(255,255,255,0.35);text-align:right}
-.notconf-box{background:#F8FAFC;border:1px dashed #cbd5e1;border-radius:6px;padding:12px 16px;font-size:11px;color:#94a3b8}
-@media print{.page{max-width:100%}body{font-size:11px}}
+.ips-lbl{font-size:10px;color:#888;margin-top:2px}
+.service-box{background:#F1F9F0;border:1px solid #BBF7D0;border-radius:8px;padding:16px 18px}
+.service-title{font-size:11px;font-weight:700;color:#15803D;margin-bottom:9px;text-transform:uppercase;letter-spacing:0.06em}
+.service-items{display:flex;flex-wrap:wrap;gap:7px}
+.service-item{font-size:10px;background:#fff;border:1px solid #BBF7D0;border-radius:12px;padding:4px 11px;color:#166534}
+.footer{background:#141414;padding:18px 44px;display:flex;align-items:center;justify-content:space-between;margin-top:10px}
+.footer-left{font-size:10px;color:rgba(255,255,255,0.55)}
+.footer-right{font-size:10px;color:rgba(255,255,255,0.35);text-align:right}
 """
 
 # ── UniFi-sektion ─────────────────────────────────────────────────────────────
 
+PL_COLORS = {
+    "network": "background:#EEF4FF;color:#0047A3",
+    "protect": "background:#F0F9FF;color:#0369a1",
+    "access":  "background:#F1F9F0;color:#166534",
+    "talk":    "background:#FDF4FF;color:#7e22ce",
+    "connect": "background:#FFFBEB;color:#92400E",
+}
+
 UNIFI_SECTION_TEMPLATE = """
 <div class="section">
-  <div class="section-title">🛜 Nätverk — UniFi</div>
+  <div class="section-title">Nätverk — UniFi</div>
+
+  {% if isp_avg_latency is not none %}
+  <div class="metrics-row" style="margin-bottom:22px">
+    <div class="mbox"><div class="mbox-val">{{ isp_avg_latency }}<span style="font-size:13px"> ms</span></div><div class="mbox-lbl">Snittlatens</div></div>
+    <div class="mbox"><div class="mbox-val">{{ isp_packet_loss }}<span style="font-size:13px"> %</span></div><div class="mbox-lbl">Paketförlust</div></div>
+    <div class="mbox"><div class="mbox-val">{{ isp_uptime }}<span style="font-size:13px"> %</span></div><div class="mbox-lbl">ISP-uptime</div></div>
+  </div>
+  {% endif %}
+
   {% for host in hosts %}
   {% if hosts|length > 1 %}
-  <div style="font-size:12px;font-weight:700;color:#0047A3;margin:12px 0 8px;padding-bottom:4px;border-bottom:1px solid #dde8f5">{{ host.host_name }}</div>
+  <div class="host-name">{{ host.host_name }}</div>
   {% endif %}
+
+  {% if host.wans %}
+  <div class="subhead">WAN-anslutningar</div>
   {% for wan in host.wans %}
   <div class="wan-row">
     <span class="wan-name">{{ wan.name }}</span>
-    {% if wan.uptime_percentage == 100 %}
+    {% if (wan.uptime_percentage or 0) >= 99 %}
       <span class="wan-badge wan-ok">Online</span>
     {% else %}
       <span class="wan-badge wan-dn">Nere</span>
     {% endif %}
-    <div class="upbar-bg"><div class="upbar {% if wan.uptime_percentage == 100 %}upbar-ok{% else %}upbar-dn{% endif %}" style="width:{{ wan.uptime_percentage or 0 }}%"></div></div>
+    <div class="upbar-bg"><div class="upbar {% if (wan.uptime_percentage or 0) >= 99 %}upbar-ok{% else %}upbar-dn{% endif %}" style="width:{{ wan.uptime_percentage or 0 }}%"></div></div>
     <span class="wan-pct">{{ wan.uptime_percentage or 0 }}%</span>
     <span class="wan-isp">{{ wan.isp_name or '' }}</span>
   </div>
   {% if wan.has_issues %}
-  <div class="wan-alert">⚠ {{ wan.name }} har haft {{ wan.issue_count }} avbrottstillfällen under perioden</div>
+  <div class="wan-alert">{{ wan.name }} har haft {{ wan.issue_count }} avbrottstillfällen under perioden</div>
   {% endif %}
   {% endfor %}
-  <div style="margin-top:10px">
-    <table>
-      <thead><tr><th>Enhet</th><th>Modell</th><th>Typ</th><th>Firmware</th><th>Status</th></tr></thead>
-      <tbody>
-        {% for d in host.devices %}
-        <tr>
-          <td><div class="dev-name">{{ d.name }}</div></td>
-          <td style="color:#555">{{ d.model or '—' }}</td>
-          <td>{% if d.product_line == 'protect' %}<span class="badge-sm b-prot">Protect</span>{% else %}<span class="badge-sm b-net">Nätverk</span>{% endif %}</td>
-          <td style="font-family:monospace;font-size:11px">{{ d.firmware_version or '—' }} {% if d.needs_update %}<span class="fw-warn">↑ upd</span>{% else %}<span class="fw-ok">✓</span>{% endif %}</td>
-          <td>{% if d.is_online %}<span class="badge-sm b-ok">Online</span>{% else %}<span class="badge-sm" style="background:#FFF1F2;color:#BE123C">Offline</span>{% endif %}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+  {% endif %}
+
+  {% if host.device_groups %}
+  <div class="subhead">Enheter</div>
+  <table>
+    <thead><tr><th>Enhet</th><th>Modell</th><th>Typ</th><th>Firmware</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for grp in host.device_groups %}
+      <tr class="grp-row"><td colspan="5">{{ grp.label }}</td></tr>
+      {% for d in grp.devices %}
+      <tr>
+        <td><div class="dev-name">{{ d.name }}</div></td>
+        <td style="color:#666">{{ d.model or '—' }}</td>
+        <td><span class="pl-tag" style="{{ grp.color }}">{{ grp.label }}</span></td>
+        <td><span class="fw-mono">{{ d.firmware_version or '—' }}</span> &nbsp;{% if d.needs_update %}<span class="badge-sm b-warn">Uppdatering finns</span>{% else %}<span class="badge-sm b-ok">Uppdaterad</span>{% endif %}</td>
+        <td>{% if d.is_online %}<span class="badge-sm b-ok">Online</span>{% else %}<span class="badge-sm b-off">Offline</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
   {% if host.ips_rules_count %}
-  <div class="ips-box" style="margin-top:10px">
+  <div class="ips-box">
     <div class="ips-val">{{ host.ips_rules_count | int }}</div>
     <div class="ips-lbl">Aktiva IPS-regler · trafiken inspekteras i realtid</div>
   </div>
   {% endif %}
   {% endfor %}
-
-  {% if isp_avg_latency is not none %}
-  <div class="metrics-row" style="margin-top:14px">
-    <div class="mbox"><div class="mbox-val">{{ isp_avg_latency }} ms</div><div class="mbox-lbl">Snittlatens</div></div>
-    <div class="mbox"><div class="mbox-val">{{ isp_packet_loss }}%</div><div class="mbox-lbl">Paketförlust</div></div>
-    <div class="mbox"><div class="mbox-val">{{ isp_uptime }}%</div><div class="mbox-lbl">ISP-uptime</div></div>
-  </div>
-  {% endif %}
 </div>
 """
 
@@ -245,8 +266,36 @@ def _month_label(period: str) -> str:
     return f"{names.get(month_num, month_num)} {year}"
 
 
+_PL_LABELS = {
+    "network": "Network", "protect": "Protect", "access": "Access",
+    "talk": "Talk", "connect": "Connect",
+}
+_PL_ORDER = ["network", "protect", "access", "talk", "connect"]
+
+
+def _group_devices(devices: list) -> list:
+    """Grupperar enheter per produktlinje (Network, Protect, Access ...)."""
+    by_line: dict = {}
+    for d in devices:
+        pl = (d.get("product_line") or "network").lower()
+        by_line.setdefault(pl, []).append(d)
+    ordered = [l for l in _PL_ORDER if l in by_line] + [
+        l for l in by_line if l not in _PL_ORDER
+    ]
+    return [
+        {
+            "label": _PL_LABELS.get(pl, pl.capitalize()),
+            "color": PL_COLORS.get(pl, PL_COLORS["network"]),
+            "devices": by_line[pl],
+        }
+        for pl in ordered
+    ]
+
+
 def _render_unifi(data: dict, env: Environment) -> tuple[str, list[str]]:
     hosts = data.get("hosts", [])
+    for host in hosts:
+        host["device_groups"] = _group_devices(host.get("devices", []))
     service_items = ["Firmware-patchning", "24/7 övervakning", "IPS-uppdateringar", "WAN-monitoring", "Fri felsökningstid"]
 
     html = env.from_string(UNIFI_SECTION_TEMPLATE).render(
