@@ -45,13 +45,12 @@ class UnifiIntegration:
         with UnifiClient(api_key) as client:
             sites = client.list_sites()
             host_groups = client.list_devices_grouped()
-            isp_metrics = None
-            if sites:
+            # Hämta ISP-mått för alla siter
+            all_isp_metrics: list[dict] = []
+            for s in sites:
                 try:
-                    isp_metrics = client.query_isp_metrics(
-                        site_id=sites[0].site_id,
-                        host_id=sites[0].host_id,
-                    )
+                    m = client.query_isp_metrics(site_id=s.site_id, host_id=s.host_id)
+                    all_isp_metrics.append(m)
                 except Exception:
                     pass
 
@@ -81,7 +80,7 @@ class UnifiIntegration:
             raw_wans = []
             for s in host_sites:
                 raw_wans.extend(s.wans)
-            active_wans = [w for w in raw_wans if w.external_ip is not None or w.uptime_percentage is not None]
+            active_wans = [w for w in raw_wans if w.isp_name is not None or w.external_ip is not None]
 
             device_list = [
                 {
@@ -120,12 +119,37 @@ class UnifiIntegration:
             })
             all_devices_flat.extend(device_list)
 
+        # Aggregera ISP-mått över alla siter till enkla snitttal för UI/PDF
+        isp_avg_latency = isp_packet_loss = isp_uptime = None
+        isp_metrics_raw = all_isp_metrics[0] if all_isp_metrics else None
+        all_periods: list[dict] = []
+        for m in all_isp_metrics:
+            try:
+                for entry in m.get("data", []):
+                    all_periods.extend(entry.get("periods", []))
+            except Exception:
+                pass
+        if all_periods:
+            try:
+                lats = [p["data"]["wan"]["avgLatency"] for p in all_periods if p.get("data", {}).get("wan", {}).get("avgLatency") is not None]
+                losses = [p["data"]["wan"]["packetLoss"] for p in all_periods if p.get("data", {}).get("wan", {}).get("packetLoss") is not None]
+                ups = [p["data"]["wan"]["uptime"] for p in all_periods if p.get("data", {}).get("wan", {}).get("uptime") is not None]
+                if lats:
+                    isp_avg_latency = round(sum(lats) / len(lats))
+                    isp_packet_loss = round(sum(losses) / len(losses), 1) if losses else 0
+                    isp_uptime = round(sum(ups) / len(ups), 2) if ups else None
+            except Exception:
+                pass
+
         return {
             "integration": "unifi",
             "available": True,
             "hosts": hosts,
-            "devices": all_devices_flat,  # flat lista för PDF-compat
+            "devices": all_devices_flat,
             "total_devices": sum(h["total_devices"] for h in hosts),
             "offline_devices": sum(h["offline_devices"] for h in hosts),
-            "isp_metrics_raw": isp_metrics,
+            "isp_metrics_raw": isp_metrics_raw,
+            "isp_avg_latency": isp_avg_latency,
+            "isp_packet_loss": isp_packet_loss,
+            "isp_uptime": isp_uptime,
         }

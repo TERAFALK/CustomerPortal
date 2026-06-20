@@ -846,7 +846,7 @@ function renderUnifiData(data) {
 
   // ── Hero-statistik (summerat över alla hosts) ──
   const allWans = hosts.flatMap(h => h.wans || []);
-  const onlineWans = allWans.filter(w => w.uptime_percentage === 100).length;
+  const onlineWans = allWans.filter(w => (w.uptime_percentage ?? 0) >= 99).length;
   const heroEl = document.getElementById('cd-hero-stats');
   heroEl.innerHTML = `
     ${allWans.length ? `<div><div class="hs-v">${onlineWans}/${allWans.length}</div><div class="hs-l">WAN online</div></div>` : ''}
@@ -854,6 +854,18 @@ function renderUnifiData(data) {
     <div><div class="hs-v">${devices.filter(d => d.is_online).length}</div><div class="hs-l">Online</div></div>
     <div><div class="hs-v">${devices.filter(d => d.needs_update).length}</div><div class="hs-l">Behöver uppdatering</div></div>
   `;
+
+  // ── ISP-mått ──
+  const ispEl = document.getElementById('cd-isp-metrics');
+  if (data.isp_avg_latency != null) {
+    ispEl.innerHTML = `
+      <div class="mbox"><div class="mv">${data.isp_avg_latency}<span class="mu">ms</span></div><div class="ml">Snittlatens</div></div>
+      <div class="mbox"><div class="mv">${data.isp_packet_loss ?? 0}<span class="mu">%</span></div><div class="ml">Paketförlust</div></div>
+      <div class="mbox"><div class="mv">${data.isp_uptime ?? '—'}<span class="mu">${data.isp_uptime != null ? '%' : ''}</span></div><div class="ml">ISP-uptime</div></div>
+    `;
+  } else {
+    ispEl.innerHTML = `<div style="grid-column:1/-1;color:var(--muted);font-size:12px;padding:4px 0">Inga ISP-mått tillgängliga</div>`;
+  }
 
   // ── WAN-panel: visa per host om flera, annars direkt ──
   const wanEl = document.getElementById('cd-wan-rows');

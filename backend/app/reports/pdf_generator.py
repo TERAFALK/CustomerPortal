@@ -249,26 +249,11 @@ def _render_unifi(data: dict, env: Environment) -> tuple[str, list[str]]:
     hosts = data.get("hosts", [])
     service_items = ["Firmware-patchning", "24/7 övervakning", "IPS-uppdateringar", "WAN-monitoring", "Fri felsökningstid"]
 
-    isp_avg_latency = isp_packet_loss = isp_uptime = None
-    metrics = data.get("isp_metrics_raw")
-    if metrics:
-        try:
-            periods = metrics["data"]["metrics"][0]["periods"]
-            lat = [p["data"]["wan"].get("avgLatency", 0) for p in periods if p.get("data", {}).get("wan")]
-            loss = [p["data"]["wan"].get("packetLoss", 0) for p in periods if p.get("data", {}).get("wan")]
-            up = [p["data"]["wan"].get("uptime", 100) for p in periods if p.get("data", {}).get("wan")]
-            if lat:
-                isp_avg_latency = round(sum(lat) / len(lat))
-                isp_packet_loss = round(sum(loss) / len(loss), 1)
-                isp_uptime = round(sum(up) / len(up), 2)
-        except Exception:
-            pass
-
     html = env.from_string(UNIFI_SECTION_TEMPLATE).render(
         hosts=hosts,
-        isp_avg_latency=isp_avg_latency,
-        isp_packet_loss=isp_packet_loss,
-        isp_uptime=isp_uptime,
+        isp_avg_latency=data.get("isp_avg_latency"),
+        isp_packet_loss=data.get("isp_packet_loss"),
+        isp_uptime=data.get("isp_uptime"),
     )
     return html, service_items
 
