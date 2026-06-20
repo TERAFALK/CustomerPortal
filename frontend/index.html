@@ -1061,12 +1061,17 @@ async function loadCustomerDetail(customerId) {
     `<div class="int-p"><div style="display:flex;flex-direction:column;gap:6px"><div class="skel-box" style="width:80px;height:13px"></div><div class="skel-box" style="width:60px;height:11px"></div></div></div>`
   ).join('');
   document.getElementById('cd-unifi-section').style.display = 'block';
-  document.getElementById('cd-unifi-section').innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:13px">
-      <div class="card"><div class="ch"><span class="cht">WAN</span></div><div class="cb">${[1,2].map(() => `<div class="skel-box" style="height:18px;margin-bottom:10px;border-radius:4px"></div>`).join('')}</div></div>
-      <div class="card"><div class="ch"><span class="cht">ISP-mått</span></div><div class="cb"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">${[1,2,3].map(() => `<div class="skel-box" style="height:60px;border-radius:var(--r)"></div>`).join('')}</div></div></div>
-    </div>
-    <div class="card"><div class="ch"><span class="cht">Enheter</span></div><div class="cb">${[1,2,3,4,5].map(() => `<div class="skel-box" style="height:16px;margin-bottom:10px;border-radius:4px"></div>`).join('')}</div></div>`;
+  const skelRow = '<div class="skel-box" style="height:18px;margin-bottom:10px;border-radius:4px"></div>';
+  document.getElementById('cd-wan-rows').innerHTML = skelRow + skelRow;
+  document.getElementById('cd-wan-status-badge').textContent = '—';
+  document.getElementById('cd-wan-status-badge').className = 'b';
+  document.getElementById('cd-isp-metrics').innerHTML = [1,2,3].map(() =>
+    `<div class="mbox"><div class="skel-box" style="height:28px;margin-bottom:6px"></div><div class="skel-box" style="height:12px;width:70%"></div></div>`
+  ).join('');
+  document.getElementById('cd-devices-tag').textContent = '';
+  document.getElementById('cd-devices-tbody').innerHTML = [1,2,3,4,5].map(() =>
+    `<tr><td colspan="4"><div class="skel-box" style="height:14px;border-radius:4px"></div></td></tr>`
+  ).join('');
   document.getElementById('cd-no-data').style.display = 'none';
   document.getElementById('cd-error').style.display = 'none';
 
