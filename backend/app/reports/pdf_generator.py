@@ -5,6 +5,7 @@ om motsvarande integration saknas eller inte är verifierad för kunden.
 """
 
 import os
+import re
 from datetime import datetime
 
 from jinja2 import Environment, BaseLoader
@@ -133,17 +134,16 @@ UNIFI_SECTION_TEMPLATE = """
   {% if host.device_groups %}
   <div class="subhead">Enheter</div>
   <table>
-    <thead><tr><th>Enhet</th><th>Modell</th><th>Typ</th><th>Firmware</th><th>Status</th></tr></thead>
+    <thead><tr><th>Enhet</th><th>Modell</th><th>Firmware</th><th style="text-align:right">Status</th></tr></thead>
     <tbody>
       {% for grp in host.device_groups %}
-      <tr class="grp-row"><td colspan="5">{{ grp.label }}</td></tr>
+      <tr class="grp-row"><td colspan="4">{{ grp.label }} · {{ grp.devices|length }} st</td></tr>
       {% for d in grp.devices %}
       <tr>
         <td><div class="dev-name">{{ d.name }}</div></td>
         <td style="color:#666">{{ d.model or '—' }}</td>
-        <td><span class="pl-tag" style="{{ grp.color }}">{{ grp.label }}</span></td>
-        <td><span class="fw-mono">{{ d.firmware_version or '—' }}</span> &nbsp;{% if d.needs_update %}<span class="badge-sm b-warn">Uppdatering finns</span>{% else %}<span class="badge-sm b-ok">Uppdaterad</span>{% endif %}</td>
-        <td>{% if d.is_online %}<span class="badge-sm b-ok">Online</span>{% else %}<span class="badge-sm b-off">Offline</span>{% endif %}</td>
+        <td><span class="fw-mono">{{ d.fw_short }}</span> &nbsp;{% if d.needs_update %}<span class="badge-sm b-warn">Uppdatering</span>{% else %}<span class="badge-sm b-ok">Senaste</span>{% endif %}</td>
+        <td style="text-align:right">{% if d.is_online %}<span class="badge-sm b-ok">Online</span>{% else %}<span class="badge-sm b-off">Offline</span>{% endif %}</td>
       </tr>
       {% endfor %}
       {% endfor %}
@@ -273,10 +273,20 @@ _PL_LABELS = {
 _PL_ORDER = ["network", "protect", "access", "talk", "connect"]
 
 
+def _short_fw(version) -> str:
+    """Plockar ut en läsbar version ur långa firmware-strängar, t.ex.
+    'UVC.S5L.v5.3.94.67.7398deb.260609.0803' → '5.3.94'."""
+    if not version:
+        return "—"
+    m = re.search(r"(\d+\.\d+\.\d+)", str(version))
+    return m.group(1) if m else str(version)
+
+
 def _group_devices(devices: list) -> list:
     """Grupperar enheter per produktlinje (Network, Protect, Access ...)."""
     by_line: dict = {}
     for d in devices:
+        d["fw_short"] = _short_fw(d.get("firmware_version"))
         pl = (d.get("product_line") or "network").lower()
         by_line.setdefault(pl, []).append(d)
     ordered = [l for l in _PL_ORDER if l in by_line] + [
