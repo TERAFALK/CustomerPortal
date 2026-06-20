@@ -329,15 +329,13 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
       <div class="ph">
         <div><div class="ph-title">Översikt</div><div class="ph-sub" id="dash-updated">Laddar...</div></div>
       </div>
-      <div class="stats">
-        <div class="stat accent"><div class="sl">Kunder</div><div class="sv" id="stat-customers">—</div><div class="sh">Managed Network</div></div>
-        <div class="stat"><div class="sl">Verifierade integrationer</div><div class="sv" id="stat-integrations">—</div><div class="sh">Aktiva kopplingar</div></div>
-        <div class="stat"><div class="sl">UniFi-enheter</div><div class="sv" id="stat-devices">—</div><div class="sh">Över alla kunder</div></div>
-        <div class="stat"><div class="sl">Rapporter</div><div class="sv" id="stat-reports">—</div><div class="sh">Senaste 30 dagarna</div></div>
+      <div class="stats" id="dash-stats">
+        <div class="stat accent"><div class="sl">Kunder</div><div class="sv" id="stat-customers"><span class="skel-box" style="display:inline-block;width:32px;height:28px;vertical-align:middle;filter:brightness(1.3)"></span></div><div class="sh">Managed Network</div></div>
+        <div class="stat"><div class="sl">Verifierade integrationer</div><div class="sv" id="stat-integrations"><span class="skel-box" style="display:inline-block;width:32px;height:28px;vertical-align:middle"></span></div><div class="sh">Aktiva kopplingar</div></div>
+        <div class="stat"><div class="sl">UniFi-enheter</div><div class="sv" id="stat-devices"><span class="skel-box" style="display:inline-block;width:48px;height:28px;vertical-align:middle"></span></div><div class="sh">Över alla kunder</div></div>
+        <div class="stat"><div class="sl">Rapporter</div><div class="sv" id="stat-reports"><span class="skel-box" style="display:inline-block;width:32px;height:28px;vertical-align:middle"></span></div><div class="sh">Senaste 30 dagarna</div></div>
       </div>
-      <div class="cg" id="dashboard-cards">
-        <div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:30px">Laddar kunder...</div>
-      </div>
+      <div class="cg" id="dashboard-cards"></div>
     </div>
 
 
@@ -663,17 +661,20 @@ async function doLogin() {
 }
 
 async function showApp() {
-  // Hämta inloggad användares roll
+  // Visa appen och skeleton omedelbart — vänta inte på API
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'flex';
+  dashboardSkeletons();
+
+  // Hämta roll i bakgrunden, uppdatera sedan UI
   try {
     currentUser = await api('/api/auth/me');
   } catch (e) {
     currentUser = { role: 'admin', full_name: '', email: '' };
   }
   applyRoleUI();
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app-screen').style.display = 'flex';
+
   if (currentUser.role === 'customer') {
-    // Kundanvändare: gå direkt till sin dashboard
     currentCustomerId = currentUser.customer_id;
     nav('dashboard');
   } else {
@@ -813,8 +814,6 @@ function dashboardSkeletons() {
 async function loadDashboard() {
   const gen = _navGen;
   document.getElementById('dash-updated').textContent = 'Laddar...';
-  // Visa skeleton direkt
-  dashboardSkeletons();
 
   // Kundanvändare: visa bara sin egen kund direkt i customer-detail istället
   if (currentUser && currentUser.role === 'customer' && currentUser.customer_id) {
