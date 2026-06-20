@@ -410,7 +410,21 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
         <span id="cd-error-msg"></span>
       </div>
 
-      <div style="display:flex;gap:9px;margin-top:4px" id="cd-admin-actions">
+      <div id="cd-users-card" class="card" style="display:none;margin-top:4px">
+        <div class="ch">
+          <i class="ti ti-users" style="color:var(--blue);font-size:16px"></i>
+          <span class="cht" style="margin-left:8px;flex:1">Användare med tillgång</span>
+          <button class="btn btn-g btn-sm" onclick="nav('users')"><i class="ti ti-settings"></i> Hantera</button>
+        </div>
+        <div class="cb0">
+          <table class="tbl">
+            <thead><tr><th>Namn</th><th>E-post</th><th>Status</th></tr></thead>
+            <tbody id="cd-users-tbody"><tr><td colspan="3" style="text-align:center;color:var(--muted);padding:16px">Laddar...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:9px;margin-top:14px" id="cd-admin-actions">
         <button class="btn btn-p" id="cd-send-btn" onclick="sendReportForCurrent()"><i class="ti ti-send"></i> Generera rapport</button>
         <button class="btn btn-g" onclick="openEditCustomer()"><i class="ti ti-edit"></i> Redigera</button>
         <button class="btn btn-g" onclick="nav('integrations')"><i class="ti ti-plug"></i> Integrationer</button>
@@ -527,6 +541,34 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
           <div style="display:flex;gap:9px;margin-top:14px">
             <button class="btn btn-p" id="cu-submit-btn" onclick="submitCreateUser()"><i class="ti ti-check"></i> Skapa användare</button>
             <button class="btn btn-g" onclick="closeCreateUser()">Avbryt</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Redigera användare -->
+      <div id="edit-user-panel" style="display:none;margin-top:20px">
+        <div class="fw">
+          <div class="ph-title" style="font-size:16px;margin-bottom:18px">Redigera användare</div>
+          <div id="eu-error" class="alert al-e" style="display:none"><i class="ti ti-alert-circle"></i><span id="eu-error-msg"></span></div>
+          <div class="f2">
+            <div class="fr" style="margin:0"><label class="fl">Namn</label><input class="fi" id="eu-name" placeholder="Förnamn Efternamn"></div>
+            <div class="fr" style="margin:0"><label class="fl">E-postadress</label><input class="fi" id="eu-email" type="email"></div>
+          </div>
+          <div class="fr"><label class="fl">Nytt lösenord <span style="font-weight:400;color:var(--muted)">(lämna tomt för att behålla)</span></label><input class="fi" id="eu-password" type="password" placeholder="Lämna tomt för oförändrat"></div>
+          <div class="f2">
+            <div class="fr" style="margin:0"><label class="fl">Roll</label>
+              <select class="fi" id="eu-role" onchange="toggleEuCustomer()">
+                <option value="admin">Admin</option>
+                <option value="customer">Kundanvändare</option>
+              </select>
+            </div>
+            <div class="fr" style="margin:0" id="eu-customer-row"><label class="fl">Kund</label>
+              <select class="fi" id="eu-customer-id"><option value="">Välj kund...</option></select>
+            </div>
+          </div>
+          <div style="display:flex;gap:9px;margin-top:14px">
+            <button class="btn btn-p" id="eu-submit-btn" onclick="submitEditUser()"><i class="ti ti-check"></i> Spara ändringar</button>
+            <button class="btn btn-g" onclick="closeEditUser()">Avbryt</button>
           </div>
         </div>
       </div>
@@ -1033,6 +1075,10 @@ async function loadCustomerDetail(customerId) {
     if (adminActions) adminActions.style.display = isCustomerRole ? 'none' : 'flex';
     const backBtn = document.getElementById('cd-back-btn');
     if (backBtn) backBtn.style.display = isCustomerRole ? 'none' : '';
+    // Visa användare kopplade till kunden (admin only)
+    const usersCard = document.getElementById('cd-users-card');
+    if (usersCard) usersCard.style.display = 'none';
+    if (!isCustomerRole) loadCustomerUsers(customerId);
 
     if (!verifiedKeys.length) {
       document.getElementById('cd-no-data').style.display = 'flex';
@@ -1271,20 +1317,32 @@ async function loadReports() {
   const el = document.getElementById('reports-list');
   el.innerHTML = `<div style="text-align:center;color:var(--muted);padding:30px">Laddar rapporter...</div>`;
 
-  // Hämta schemainfo
-  try {
-    const sched = await api('/api/scheduler/status');
-    if (sched && sched.next_run) {
-      document.getElementById('sched-next').textContent = new Date(sched.next_run).toLocaleString('sv-SE', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
-    } else {
+  // Hämta schemainfo (admin only — kunder har inte schedulern synlig)
+  const isAdmin = !currentUser || currentUser.role === 'admin';
+  if (isAdmin) {
+    try {
+      const sched = await api('/api/scheduler/status');
+      if (sched && sched.next_run) {
+        document.getElementById('sched-next').textContent = new Date(sched.next_run).toLocaleString('sv-SE', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+      } else {
+        document.getElementById('sched-next').textContent = '1:a varje månad, 08:00';
+      }
+      if (sched && sched.sender) document.getElementById('sched-sender').textContent = sched.sender;
+    } catch (_) {
       document.getElementById('sched-next').textContent = '1:a varje månad, 08:00';
     }
-    if (sched && sched.sender) document.getElementById('sched-sender').textContent = sched.sender;
-  } catch (_) {
-    document.getElementById('sched-next').textContent = '1:a varje månad, 08:00';
   }
 
   try {
+    // Se till att vi har kundnamn att visa — hämta om cachen är tom
+    if (!customersCache.length) {
+      try {
+        const customers = await api('/api/customers');
+        if (_navGen !== gen) return;
+        customersCache = customers;
+      } catch (_) { /* visas med ID som fallback */ }
+    }
+
     const reports = await api('/api/reports');
     if (_navGen !== gen) return;
     if (!reports.length) {
@@ -1295,7 +1353,7 @@ async function loadReports() {
     customersCache.forEach(c => customerNameById[c.id] = c.name);
 
     el.innerHTML = reports.map(r => {
-      const name = customerNameById[r.customer_id] || r.customer_id;
+      const name = customerNameById[r.customer_id] || '';
       const statusBadge = {
         sent: '<span class="b b-ok">Levererad</span>',
         pending: '<span class="b b-muted">Väntar</span>',
@@ -1306,7 +1364,7 @@ async function loadReports() {
       return `
         <div class="rr">
           <div class="ri"><i class="ti ti-file-description"></i></div>
-          <div style="flex:1"><div class="rn">${escapeHtml(r.period)} — ${escapeHtml(name)}</div><div class="rm">${meta}</div></div>
+          <div style="flex:1"><div class="rn">${escapeHtml(name || r.customer_id)} — ${escapeHtml(r.period)}</div><div class="rm">${meta}</div></div>
           <div style="display:flex;align-items:center;gap:8px">
             ${statusBadge}
             <button class="btn btn-g btn-sm" onclick="previewReport('${r.customer_id}')"><i class="ti ti-eye"></i> Förhandsgranska</button>
@@ -1341,8 +1399,7 @@ async function previewReport(customerId) {
 
 function downloadReportPdf(reportId, customerName, period) {
   const url = `${API}/api/reports/${reportId}/pdf`;
-  const slug = (customerName || 'kund').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  const filename = `insight-rapport-${period || ''}-${slug}.pdf`;
+  const filename = `${customerName || 'Rapport'} - ${period || ''}.pdf`;
   fetch(url, { headers: { 'Authorization': 'Bearer ' + authToken } })
     .then(r => { if (!r.ok) throw new Error('Kunde inte hämta PDF'); return r.blob(); })
     .then(blob => {
@@ -1407,7 +1464,10 @@ async function loadUsers() {
           <td>${roleBadge}</td>
           <td style="color:var(--sub);font-size:12px">${escapeHtml(customerName)}</td>
           <td>${statusBadge}</td>
-          <td style="text-align:right">${isSelf ? '' : `<button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}','${escapeHtml(u.email)}')"><i class="ti ti-trash"></i> Ta bort</button>`}</td>
+          <td style="text-align:right;white-space:nowrap">
+            <button class="btn btn-g btn-sm" onclick="openEditUser('${u.id}')"><i class="ti ti-edit"></i> Redigera</button>
+            ${isSelf ? '' : `<button class="btn btn-danger btn-sm" style="margin-left:6px" onclick="deleteUser('${u.id}','${escapeHtml(u.email)}')"><i class="ti ti-trash"></i></button>`}
+          </td>
         </tr>`;
     }).join('');
   } catch (e) {
@@ -1484,6 +1544,108 @@ async function submitCreateUser() {
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="ti ti-check"></i> Skapa användare';
+  }
+}
+
+let _editingUserId = null;
+
+async function openEditUser(userId) {
+  // Stäng create-panelen om öppen
+  document.getElementById('create-user-panel').style.display = 'none';
+  const panel = document.getElementById('edit-user-panel');
+  panel.style.display = 'block';
+  document.getElementById('eu-error').style.display = 'none';
+  document.getElementById('eu-password').value = '';
+
+  // Hämta befintliga användare från det vi redan renderat (läs från DOM alternativt gör ny request)
+  _editingUserId = userId;
+
+  // Fyll kundlistan
+  const sel = document.getElementById('eu-customer-id');
+  sel.innerHTML = '<option value="">Välj kund...</option>';
+  try {
+    const [users, customers] = await Promise.all([api('/api/users'), api('/api/customers')]);
+    customers.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.name;
+      sel.appendChild(opt);
+    });
+    const u = users.find(u => u.id === userId);
+    if (u) {
+      document.getElementById('eu-name').value = u.full_name || '';
+      document.getElementById('eu-email').value = u.email || '';
+      document.getElementById('eu-role').value = u.role || 'customer';
+      sel.value = u.customer_id || '';
+    }
+  } catch (e) { /* ignorera */ }
+  toggleEuCustomer();
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function closeEditUser() {
+  document.getElementById('edit-user-panel').style.display = 'none';
+  _editingUserId = null;
+}
+
+function toggleEuCustomer() {
+  const role = document.getElementById('eu-role').value;
+  document.getElementById('eu-customer-row').style.display = role === 'customer' ? '' : 'none';
+}
+
+async function submitEditUser() {
+  if (!_editingUserId) return;
+  const full_name = document.getElementById('eu-name').value.trim();
+  const email = document.getElementById('eu-email').value.trim();
+  const password = document.getElementById('eu-password').value;
+  const role = document.getElementById('eu-role').value;
+  const customer_id = document.getElementById('eu-customer-id').value || null;
+  const errEl = document.getElementById('eu-error');
+  const errMsg = document.getElementById('eu-error-msg');
+  errEl.style.display = 'none';
+
+  if (!email) { errMsg.textContent = 'E-postadress krävs.'; errEl.style.display = 'block'; return; }
+  if (role === 'customer' && !customer_id) { errMsg.textContent = 'Välj en kund för kundanvändaren.'; errEl.style.display = 'block'; return; }
+
+  const body = { full_name, email, role, customer_id };
+  if (password) body.password = password;
+
+  const btn = document.getElementById('eu-submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2"></i> Sparar...';
+  try {
+    await api(`/api/users/${_editingUserId}`, { method: 'PUT', body: JSON.stringify(body) });
+    t(`${email} uppdaterad`);
+    closeEditUser();
+    loadUsers();
+  } catch (e) {
+    errMsg.textContent = e.message;
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-check"></i> Spara ändringar';
+  }
+}
+
+async function loadCustomerUsers(customerId) {
+  const card = document.getElementById('cd-users-card');
+  const tbody = document.getElementById('cd-users-tbody');
+  card.style.display = 'block';
+  try {
+    const users = await api('/api/users');
+    const customerUsers = users.filter(u => u.customer_id === customerId);
+    if (!customerUsers.length) {
+      tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:16px">Inga användare kopplade till denna kund</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = customerUsers.map(u => `
+      <tr>
+        <td><div class="dn">${escapeHtml(u.full_name || '—')}</div></td>
+        <td style="color:var(--sub);font-size:12px">${escapeHtml(u.email)}</td>
+        <td>${u.is_active ? '<span class="b b-ok">Aktiv</span>' : '<span class="b b-err">Inaktiv</span>'}</td>
+      </tr>`).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="3" style="color:var(--err);padding:14px 18px;font-size:12px">${e.message}</td></tr>`;
   }
 }
 
