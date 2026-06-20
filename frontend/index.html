@@ -468,8 +468,9 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
 <script>
 const API = '';
 let authToken = localStorage.getItem('tf_token');
-let currentCustomerId = null;          // vilken kund som visas i kunddetalj/integrationsvyn
-let customersCache = [];               // senast hämtade kundlista
+let currentCustomerId = null;
+let customersCache = [];
+let _navGen = 0;  // ökas vid varje navigation — används för att avbryta inaktuella async-körningar
 
 // ── API-hjälpare ──────────────────────────────────────────────────────────
 
@@ -546,6 +547,7 @@ const titles = { dashboard: 'Översikt', customers: 'Kunder', 'customer-detail':
 const parents = { dashboard: 'dashboard', customers: 'customers', 'customer-detail': 'customers', reports: 'reports', 'add-customer': 'add-customer', settings: 'settings', integrations: 'customers' };
 
 function nav(id) {
+  _navGen++;  // ogiltigförklarar alla pågående async-laddningar
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   const el = document.getElementById('v-' + id);
   if (el) el.classList.add('active');
@@ -600,38 +602,37 @@ function errToast(prefix, e) {
 // ── Dashboard ─────────────────────────────────────────────────────────────
 
 async function loadDashboard() {
+  const gen = _navGen;
   document.getElementById('dash-updated').textContent = 'Laddar...';
   try {
     const customers = await api('/api/customers');
+    if (_navGen !== gen) return;
     customersCache = customers;
     document.getElementById('stat-customers').textContent = customers.length;
 
-    let verifiedCount = 0, deviceTotal = 0;
-    customers.forEach(c => verifiedCount += (c.integrations_verified || []).length);
+    let verifiedCount = 0;
+    let unifiCount = 0;
+    customers.forEach(c => {
+      const v = c.integrations_verified || [];
+      verifiedCount += v.length;
+      if (v.includes('unifi')) unifiCount++;
+    });
 
     document.getElementById('stat-integrations').textContent = verifiedCount;
+    document.getElementById('stat-devices').textContent = unifiCount > 0 ? `${unifiCount} site${unifiCount !== 1 ? 'r' : ''}` : '0';
     document.getElementById('dash-updated').textContent = 'Senast uppdaterat ' + new Date().toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
 
     let reportsCount = '—';
     try {
       const reports = await api('/api/reports');
+      if (_navGen !== gen) return;
       reportsCount = reports.length;
     } catch (e) { /* rapport-listning är inte kritiskt för dashboard */ }
     document.getElementById('stat-reports').textContent = reportsCount;
 
     renderDashboardCards(customers);
-
-    // Hämta UniFi-enhetsantal för kunder med verifierad UniFi-koppling (parallellt)
-    const unifiCustomers = customers.filter(c => (c.integrations_verified || []).includes('unifi'));
-    let totalDevices = 0;
-    await Promise.all(unifiCustomers.map(async c => {
-      try {
-        const data = await api(`/api/customers/${c.id}/integrations/unifi/live`);
-        totalDevices += data.total_devices || 0;
-      } catch (e) { /* enskild kunds live-data är inte kritisk här */ }
-    }));
-    document.getElementById('stat-devices').textContent = unifiCustomers.length ? totalDevices : '0';
   } catch (e) {
+    if (_navGen !== gen) return;
     errToast('Kunde inte ladda dashboard', e);
     document.getElementById('dashboard-cards').innerHTML = `<div class="alert al-e" style="grid-column:1/-1"><i class="ti ti-alert-circle"></i><span>${e.message}</span></div>`;
   }
@@ -669,10 +670,12 @@ function renderDashboardCards(customers) {
 // ── Kundlista ─────────────────────────────────────────────────────────────
 
 async function loadCustomersList() {
+  const gen = _navGen;
   const tbody = document.getElementById('customers-tbody');
   tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">Laddar kunder...</td></tr>`;
   try {
     const customers = await api('/api/customers');
+    if (_navGen !== gen) return;
     customersCache = customers;
     document.getElementById('customers-sub').textContent = customers.length
       ? `${customers.length} kund${customers.length !== 1 ? 'er' : ''}`
@@ -701,6 +704,7 @@ async function loadCustomersList() {
         </tr>`;
     }).join('');
   } catch (e) {
+    if (_navGen !== gen) return;
     tbody.innerHTML = `<tr><td colspan="6"><div class="alert al-e" style="margin:10px"><i class="ti ti-alert-circle"></i><span>${e.message}</span></div></td></tr>`;
   }
 }
@@ -768,6 +772,7 @@ async function deleteCurrentCustomer() {
 // ── Kunddetalj (dynamisk, byggd från verifierade integrationer) ───────────
 
 async function loadCustomerDetail(customerId) {
+  const gen = _navGen;
   document.getElementById('cd-name').textContent = 'Laddar...';
   document.getElementById('cd-sub').textContent = '';
   document.getElementById('cd-hero-stats').innerHTML = '';
@@ -778,6 +783,7 @@ async function loadCustomerDetail(customerId) {
 
   try {
     const customer = await api(`/api/customers/${customerId}`);
+    if (_navGen !== gen) return;
     document.getElementById('cd-name').textContent = customer.name;
     document.getElementById('cd-eyebrow').textContent = `Kund · ${customer.city || '—'}`;
     document.getElementById('cd-sub').textContent = customer.contact_email + (customer.contact_name ? ' · ' + customer.contact_name : '');
@@ -803,17 +809,19 @@ async function loadCustomerDetail(customerId) {
     document.getElementById('cd-send-btn').disabled = false;
 
     if (verifiedKeys.includes('unifi')) {
-      await loadUnifiSection(customerId);
+      await loadUnifiSection(customerId, gen);
     }
   } catch (e) {
+    if (_navGen !== gen) return;
     document.getElementById('cd-error-msg').textContent = e.message;
     document.getElementById('cd-error').style.display = 'flex';
   }
 }
 
-async function loadUnifiSection(customerId) {
+async function loadUnifiSection(customerId, gen) {
   try {
     const data = await api(`/api/customers/${customerId}/integrations/unifi/live`);
+    if (_navGen !== gen) return;
     document.getElementById('cd-unifi-section').style.display = 'block';
 
     const site = (data.sites && data.sites[0]) || {};
@@ -876,10 +884,12 @@ const INTEGRATION_DEFS = [
 ];
 
 async function loadIntegrationsView(customerId) {
+  const gen = _navGen;
   const container = document.getElementById('integrations-cards');
   container.innerHTML = `<div style="text-align:center;color:var(--muted);padding:30px">Laddar...</div>`;
   try {
     const customer = await api(`/api/customers/${customerId}`);
+    if (_navGen !== gen) return;
     document.getElementById('ic-customer-name').textContent = customer.name;
     const statusByKey = {};
     customer.integrations.forEach(i => statusByKey[i.key] = i);
@@ -907,6 +917,7 @@ async function loadIntegrationsView(customerId) {
         </div>`;
     }).join('');
   } catch (e) {
+    if (_navGen !== gen) return;
     container.innerHTML = `<div class="alert al-e"><i class="ti ti-alert-circle"></i><span>${e.message}</span></div>`;
   }
 }
@@ -950,10 +961,12 @@ async function removeIntegration(customerId, key) {
 // ── Rapporter ─────────────────────────────────────────────────────────────
 
 async function loadReports() {
+  const gen = _navGen;
   const el = document.getElementById('reports-list');
   el.innerHTML = `<div style="text-align:center;color:var(--muted);padding:30px">Laddar rapporter...</div>`;
   try {
     const reports = await api('/api/reports');
+    if (_navGen !== gen) return;
     if (!reports.length) {
       el.innerHTML = `<div style="text-align:center;color:var(--muted);padding:30px">Inga rapporter genererade än.</div>`;
       return;
@@ -981,6 +994,7 @@ async function loadReports() {
         </div>`;
     }).join('');
   } catch (e) {
+    if (_navGen !== gen) return;
     el.innerHTML = `<div class="alert al-e"><i class="ti ti-alert-circle"></i><span>${e.message}</span></div>`;
   }
 }
