@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.auth import current_user
 from app.db.database import get_db
-from app.db.models import Report, User
+from app.db.models import Customer, Report, User
 
 router = APIRouter()
 
@@ -52,6 +53,50 @@ async def trigger_all_reports(_: User = Depends(current_user)):
     import asyncio
     asyncio.create_task(run_all_reports())
     return {"status": "accepted"}
+
+
+@router.get("/preview/{customer_id}", response_class=HTMLResponse)
+async def preview_report(
+    customer_id: str,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(current_user),
+):
+    """Genererar och returnerar rapport-HTML för förhandsgranskning (ingen PDF, ingen DB-post)."""
+    from datetime import datetime
+    from app.integrations.registry import get_client
+    from app.reports.pdf_generator import generate_preview_html
+
+    customer = await db.scalar(
+        select(Customer)
+        .where(Customer.id == customer_id)
+        .options(selectinload(Customer.credentials))
+    )
+    if not customer:
+        raise HTTPException(404, "Kund hittades inte")
+
+    period = datetime.utcnow().strftime("%Y-%m")
+    sections: dict = {}
+    for cred in customer.credentials:
+        if not cred.is_verified:
+            continue
+        try:
+            client = get_client(cred.integration_type)
+            data = await client.fetch_report_data(cred)
+            sections[cred.integration_type] = data
+        except NotImplementedError:
+            pass
+        except Exception:
+            pass
+
+    if not sections:
+        raise HTTPException(422, "Ingen verifierad integration med data — kan inte förhandsvisa rapport")
+
+    html = await generate_preview_html(
+        customer_name=customer.name,
+        period=period,
+        sections=sections,
+    )
+    return HTMLResponse(content=html)
 
 
 @router.get("/{report_id}/pdf")

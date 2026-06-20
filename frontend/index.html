@@ -881,26 +881,47 @@ function renderUnifiData(data) {
     return hostHeader + wanRows;
   }).join('') || '<div style="color:var(--muted);font-size:12px">Ingen WAN-data tillgänglig</div>';
 
-  // ── Enhetstabell: grupperad per host ──
+  // ── Enhetstabell: grupperad per produktlinje (Network, Protect, Access, ...) ──
   const devicesTbody = document.getElementById('cd-devices-tbody');
   const totalUpdates = devices.filter(d => d.needs_update).length;
   document.getElementById('cd-devices-tag').textContent = totalUpdates ? `${totalUpdates} behöver uppdatering` : 'Alla uppdaterade';
 
+  const plLabel = { network: 'Network', protect: 'Protect', access: 'Access', talk: 'Talk', connect: 'Connect' };
+  const plStyle = { network: 'background:var(--tint2);color:var(--blue)', protect: 'background:rgba(75,161,231,0.1);color:#0369a1', access: 'background:#F1F9F0;color:#166534', talk: 'background:#FDF4FF;color:#7e22ce', connect: 'background:#FFFBEB;color:#92400E' };
+
+  function renderDeviceRows(devList) {
+    // Grupp per product_line
+    const byLine = {};
+    devList.forEach(d => { const pl = d.product_line || 'network'; (byLine[pl] = byLine[pl] || []).push(d); });
+    const lineOrder = ['network', 'protect', 'access', 'talk', 'connect'];
+    const sortedLines = [...new Set([...lineOrder.filter(l => byLine[l]), ...Object.keys(byLine).filter(l => !lineOrder.includes(l))])];
+    return sortedLines.map(pl => {
+      const devs = byLine[pl];
+      const lbl = plLabel[pl] || pl.charAt(0).toUpperCase() + pl.slice(1);
+      const header = `<tr><td colspan="5" style="background:var(--tint);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--sub);padding:5px 14px">${lbl}</td></tr>`;
+      const rows = devs.map(d => {
+        const fwBadge = d.needs_update
+          ? `<span class="b b-warn" style="font-size:10px">Uppdatering finns</span>`
+          : `<span class="b b-ok" style="font-size:10px">Uppdaterad</span>`;
+        return `<tr>
+          <td><div class="dn">${escapeHtml(d.name)}</div></td>
+          <td style="color:#555;font-size:12px">${escapeHtml(d.model || '—')}</td>
+          <td><span class="pl" style="${plStyle[pl] || plStyle.network}">${lbl}</span></td>
+          <td style="font-family:monospace;font-size:12px">${escapeHtml(d.firmware_version || '—')}<br>${fwBadge}</td>
+          <td>${d.is_online ? '<span class="b b-ok">Online</span>' : '<span class="b b-err">Offline</span>'}</td>
+        </tr>`;
+      }).join('');
+      return header + rows;
+    }).join('');
+  }
+
   devicesTbody.innerHTML = hosts.map(h => {
     const hDevices = h.devices || [];
     if (!hDevices.length) return '';
-    const groupHeader = multiHost
-      ? `<tr><td colspan="5" style="background:var(--tint);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--blue);padding:6px 14px">${escapeHtml(h.host_name)}</td></tr>`
+    const hostHeader = multiHost
+      ? `<tr><td colspan="5" style="background:var(--blue);color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:6px 14px">${escapeHtml(h.host_name)}</td></tr>`
       : '';
-    const rows = hDevices.map(d => `
-      <tr>
-        <td><div class="dn">${escapeHtml(d.name)}</div></td>
-        <td style="color:#555">${escapeHtml(d.model || '—')}</td>
-        <td>${d.product_line === 'protect' ? '<span class="pl pl-p">Protect</span>' : '<span class="pl pl-n">Nätverk</span>'}</td>
-        <td style="font-family:monospace;font-size:12px">${escapeHtml(d.firmware_version || '—')} ${d.needs_update ? '<span style="color:#F59E0B;font-weight:700">↑</span>' : '<span style="color:#22C55E">✓</span>'}</td>
-        <td>${d.is_online ? '<span class="b b-ok">Online</span>' : '<span class="b b-err">Offline</span>'}</td>
-      </tr>`).join('');
-    return groupHeader + rows;
+    return hostHeader + renderDeviceRows(hDevices);
   }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Inga enheter hittades</td></tr>';
 }
 
@@ -1023,6 +1044,7 @@ async function loadReports() {
           <div style="flex:1"><div class="rn">${escapeHtml(r.period)} — ${escapeHtml(name)}</div><div class="rm">${meta}</div></div>
           <div style="display:flex;align-items:center;gap:8px">
             ${statusBadge}
+            <button class="btn btn-g btn-sm" onclick="previewReport('${r.customer_id}')"><i class="ti ti-eye"></i> Förhandsgranska</button>
             ${r.pdf_path ? `<button class="btn btn-g btn-ico" onclick="downloadReportPdf('${r.id}')"><i class="ti ti-download" style="font-size:13px"></i></button>` : ''}
           </div>
         </div>`;
@@ -1030,6 +1052,25 @@ async function loadReports() {
   } catch (e) {
     if (_navGen !== gen) return;
     el.innerHTML = `<div class="alert al-e"><i class="ti ti-alert-circle"></i><span>${e.message}</span></div>`;
+  }
+}
+
+async function previewReport(customerId) {
+  t('Genererar förhandsgranskning...');
+  try {
+    const res = await fetch(`${API}/api/reports/preview/${customerId}`, {
+      headers: { 'Authorization': 'Bearer ' + authToken }
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || `HTTP ${res.status}`);
+    }
+    const html = await res.text();
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  } catch (e) {
+    errToast('Kunde inte generera förhandsgranskning', e);
   }
 }
 

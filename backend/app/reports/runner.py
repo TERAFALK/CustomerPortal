@@ -52,7 +52,7 @@ async def run_report_for_customer(customer_id: str) -> None:
             logger.error("Kund %s hittades inte", customer_id)
             return
 
-        period = datetime.now(timezone.utc).strftime("%Y-%m")
+        period = datetime.utcnow().strftime("%Y-%m")
 
         # Bygg rapportdata sektion för sektion — bara verifierade integrationer
         sections: dict[str, dict] = {}

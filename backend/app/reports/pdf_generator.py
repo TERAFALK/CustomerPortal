@@ -296,6 +296,41 @@ _RENDERERS = {
 }
 
 
+async def generate_preview_html(customer_name: str, period: str, sections: dict) -> str:
+    """Returnerar rapport-HTML utan att generera en PDF eller skriva till disk."""
+    env = Environment(loader=BaseLoader())
+    rendered_html_parts = []
+    included_names = []
+    service_items: list[str] = []
+
+    order = ["unifi", "microsoft", "acronis", "cloudfactory"]
+    keys_in_order = [k for k in order if k in sections] + [k for k in sections if k not in order]
+
+    for key in keys_in_order:
+        if key not in _RENDERERS:
+            continue
+        display_name, renderer = _RENDERERS[key]
+        try:
+            html, items = renderer(sections[key], env)
+            rendered_html_parts.append(html)
+            included_names.append(display_name)
+            service_items.extend(items)
+        except Exception:
+            continue
+
+    ctx = {
+        "base_style": BASE_STYLE,
+        "logo": TERAFALK_LOGO_SVG,
+        "customer_name": customer_name,
+        "period_label": _month_label(period),
+        "generated_date": datetime.now().strftime("%Y-%m-%d"),
+        "included_integration_names": included_names,
+        "rendered_sections": "\n".join(rendered_html_parts),
+        "service_items": sorted(set(service_items), key=service_items.index),
+    }
+    return env.from_string(PAGE_TEMPLATE).render(**ctx)
+
+
 async def generate_pdf(customer_name: str, period: str, sections: dict, customer_id: str) -> str:
     """
     Genererar en PDF-rapport byggd uteslutande av de sektioner som finns i

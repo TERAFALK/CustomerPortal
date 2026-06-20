@@ -81,7 +81,7 @@ class UnifiIntegration:
             raw_wans = []
             for s in host_sites:
                 raw_wans.extend(s.wans)
-            active_wans = [w for w in raw_wans if w.uptime_percentage is not None]
+            active_wans = [w for w in raw_wans if w.external_ip is not None or w.uptime_percentage is not None]
 
             device_list = [
                 {
