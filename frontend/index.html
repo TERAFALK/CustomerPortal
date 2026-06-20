@@ -811,9 +811,16 @@ function dashboardSkeletons() {
     </div>`).join('');
 }
 
+function statSkel(id) {
+  document.getElementById(id).innerHTML = '<span class="skel-box" style="display:inline-block;width:36px;height:26px;vertical-align:middle"></span>';
+}
+
 async function loadDashboard() {
   const gen = _navGen;
   document.getElementById('dash-updated').textContent = 'Laddar...';
+  // Visa skeleton omedelbart varje gång dashboard laddas
+  dashboardSkeletons();
+  statSkel('stat-customers'); statSkel('stat-integrations'); statSkel('stat-devices'); statSkel('stat-reports');
 
   // Kundanvändare: visa bara sin egen kund direkt i customer-detail istället
   if (currentUser && currentUser.role === 'customer' && currentUser.customer_id) {
