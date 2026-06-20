@@ -30,11 +30,24 @@ def decrypt(ciphertext: str) -> str:
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return pwd_context.hash(_truncate_for_bcrypt(password))
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    return pwd_context.verify(_truncate_for_bcrypt(plain), hashed)
+
+
+def _truncate_for_bcrypt(password: str) -> str:
+    """
+    bcrypt hanterar max 72 bytes. Ett långt lösenord (t.ex. en lång
+    passphrase i FIRST_ADMIN_PASSWORD) ska trunkeras konsekvent vid
+    hashning OCH verifiering — annars kraschar appen vid uppstart
+    istället för att bara klippa lösenordet.
+    """
+    encoded = password.encode("utf-8")
+    if len(encoded) <= 72:
+        return password
+    return encoded[:72].decode("utf-8", errors="ignore")
 
 
 def create_access_token(subject: str) -> str:

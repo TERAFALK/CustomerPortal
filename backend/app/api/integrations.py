@@ -1,27 +1,39 @@
 """
-Integrations-router — stubs för Microsoft 365, Acronis och Cloudfactory.
-Varje integration aktiveras när credentials lagts till för en kund.
+Integrations-router — global status, inte kund-specifik (se customers.py
+för kund-specifika endpoints som upsert/verify/live-data per integration).
 """
 
 from fastapi import APIRouter, Depends
 
 from app.api.auth import current_user
+from app.core.config import settings
 from app.db.models import User
+from app.integrations.registry import INTEGRATIONS
 
 router = APIRouter()
 
 
 @router.get("/status")
 async def integration_status(_: User = Depends(current_user)):
-    """Returnerar vilka integrationer som är konfigurerade globalt."""
-    from app.core.config import settings
+    """
+    Returnerar alla integrationstyper i systemet, jämbördigt — UniFi har
+    ingen särställning. Microsoft Graph (för utskick) listas separat
+    eftersom det är TERAFALK:s egen avsändarkonfiguration, inte en
+    per-kund-integration.
+    """
     return {
-        "graph": {
+        "sender": {
             "configured": bool(settings.GRAPH_TENANT_ID and settings.GRAPH_CLIENT_ID),
-            "sender": settings.GRAPH_SENDER,
+            "address": settings.GRAPH_SENDER,
+            "note": "Används för att SKICKA rapporter — separat från kunders Microsoft 365-integration",
         },
-        "unifi": {"note": "Konfigureras per kund via /api/customers/{id}/credentials/unifi"},
-        "microsoft_365": {"note": "Konfigureras per kund — tenant-koppling kommande"},
-        "acronis": {"note": "Konfigureras per kund — backup-status kommande"},
-        "cloudfactory": {"note": "Konfigureras per kund — licensdata kommande"},
+        "integrations": [
+            {
+                "key": key,
+                "display_name": meta.display_name,
+                "icon": meta.icon,
+                "description": meta.description,
+            }
+            for key, meta in INTEGRATIONS.items()
+        ],
     }

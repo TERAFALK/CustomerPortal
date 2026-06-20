@@ -24,7 +24,12 @@ Graph-fälten (`GRAPH_TENANT_ID` etc.) kan lämnas tomma till att börja med —
 docker compose up -d
 ```
 
-Portalen är tillgänglig på `http://din-server-ip`
+- Backend (API) körs på port `8000`
+- Frontend (portalen) körs på port `8080`
+
+Sätt din egen reverse proxy (nginx, Caddy, Traefik) att peka mot serverns IP på dessa portar. En referenskonfiguration för nginx finns i `nginx/nginx.conf` om du vill utgå från den — den startas inte automatiskt av docker-compose.
+
+Portalen är tillgänglig på `http://din-server-ip:8080` (eller via din egen reverse proxy/domän).
 
 ### 3. Logga in
 - E-post: värdet du satte i `FIRST_ADMIN_EMAIL` (standard: `admin@terafalk.com`)
@@ -59,7 +64,9 @@ Nyckeln krypteras med AES-256 innan den lagras i databasen.
 
 ---
 
-## Integrationer (kommande)
+## Integrationer
+
+Alla integrationer — inklusive UniFi — är jämbördiga och valfria per kund. En kund kan ha vilken kombination som helst (bara UniFi, bara Acronis, alla fyra, eller inga alls). Rapporten byggs dynamiskt utifrån vilka integrationer som är **konfigurerade och verifierade** för just den kunden — en integration som inte är verifierad visas aldrig med platshållardata i rapporten.
 
 | Integration | Status | Vad det ger rapporten |
 |---|---|---|
@@ -67,6 +74,8 @@ Nyckeln krypteras med AES-256 innan den lagras i databasen.
 | Microsoft 365 | 🔜 Snart | Licensöversikt, säkerhetspoäng, MFA-status |
 | Acronis | 🔜 Snart | Säkerhetskopiestatus per enhet |
 | Cloudfactory | 🔜 Snart | Licensdata och tjänststatus |
+
+Lägg till eller ta bort en integration för en kund under **Kund → Integrationer**. Samma flöde (API-nyckel/credentials → Spara & verifiera) gäller oavsett integrationstyp.
 
 ---
 
@@ -111,5 +120,26 @@ Manuell körning via portalen: **Rapporter → Kör alla nu**, eller per kund vi
 
 - Alla API-nycklar krypteras med AES-256 (Fernet) i databasen
 - JWT-tokens med 8h utgångstid
-- Lösenord hashas med bcrypt
+- Lösenord hashas med bcrypt (automatiskt trunkerade vid >72 bytes — bcrypts hårda gräns)
 - `.env` och certifikat är i `.gitignore` — hamnar aldrig i Git
+
+---
+
+## Felsökning
+
+**`exec: "uvicorn": executable file not found in $PATH`**
+Imagen byggdes med en gammal `requirements.txt` innan uvicorn lades till, eller bygg-cachen är stale. Kör:
+```bash
+docker compose build --no-cache backend
+docker compose up -d
+```
+
+**`(trapped) error reading bcrypt version` / `bcrypt has no attribute '__about__'`**
+`passlib==1.7.4` försöker läsa ett internt bcrypt-attribut som togs bort i bcrypt 4.1+. Redan löst i `requirements.txt` genom att låsa `bcrypt==4.0.1`. Om felet ändå dyker upp, bygg om utan cache enligt ovan.
+
+**`ValueError: password cannot be longer than 72 bytes`**
+bcrypt har en hård gräns på 72 bytes per lösenord. Koden trunkerar nu automatiskt (`app/core/security.py`), så detta ska inte längre kunna inträffa — men håll ändå `FIRST_ADMIN_PASSWORD` under ca 50 tecken för enkelhetens skull.
+
+**Kund går inte att skapa / knappar gör inget**
+Tidigare versioner av frontend var en ren visuell demo utan koppling till backend. Från och med denna version är alla vyer databundna mot `/api/...`. Om ett anrop misslyckas visas felmeddelandet i en toast eller som en röd ruta i vyn — öppna webbläsarens devtools-konsol (F12) för fullständig felinformation om något fortfarande inte fungerar.
+

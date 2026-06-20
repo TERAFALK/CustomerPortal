@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -8,9 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.auth import current_user
-from app.core.security import decrypt, encrypt
+from app.core.security import encrypt
 from app.db.database import get_db
 from app.db.models import Customer, IntegrationCredential, User
+from app.integrations.registry import INTEGRATIONS, get_client
 
 router = APIRouter()
 
@@ -25,14 +25,13 @@ class CustomerCreate(BaseModel):
 
 
 class CredentialUpsert(BaseModel):
-    integration_type: str  # "unifi" | "microsoft" | "acronis" | "cloudfactory"
     api_key: str | None = None
     tenant_id: str | None = None
     client_id: str | None = None
     client_secret: str | None = None
 
 
-# ── Endpoints ─────────────────────────────────────────────────────────────────
+# ── Kund-CRUD ─────────────────────────────────────────────────────────────────
 
 @router.get("")
 async def list_customers(
@@ -45,21 +44,18 @@ async def list_customers(
         .options(selectinload(Customer.credentials))
         .order_by(Customer.name)
     )
-    customers = rows.all()
     result = []
-    for c in customers:
-        cred_types = [cr.integration_type for cr in c.credentials]
+    for c in rows.all():
+        verified = {cr.integration_type for cr in c.credentials if cr.is_verified}
+        configured = {cr.integration_type for cr in c.credentials}
         result.append({
             "id": c.id,
             "name": c.name,
             "contact_name": c.contact_name,
             "contact_email": c.contact_email,
             "city": c.city,
-            "integrations": cred_types,
-            "has_unifi": "unifi" in cred_types,
-            "has_microsoft": "microsoft" in cred_types,
-            "has_acronis": "acronis" in cred_types,
-            "has_cloudfactory": "cloudfactory" in cred_types,
+            "integrations_configured": list(configured),
+            "integrations_verified": list(verified),
         })
     return result
 
@@ -90,13 +86,27 @@ async def get_customer(
     )
     if not c:
         raise HTTPException(404, "Kund hittades inte")
+
+    integrations_status = []
+    cred_by_type = {cr.integration_type: cr for cr in c.credentials}
+    for key, meta in INTEGRATIONS.items():
+        cred = cred_by_type.get(key)
+        integrations_status.append({
+            "key": key,
+            "display_name": meta.display_name,
+            "icon": meta.icon,
+            "configured": cred is not None,
+            "verified": cred.is_verified if cred else False,
+            "last_verified_at": cred.last_verified_at if cred else None,
+        })
+
     return {
         "id": c.id,
         "name": c.name,
         "contact_name": c.contact_name,
         "contact_email": c.contact_email,
         "city": c.city,
-        "integrations": [cr.integration_type for cr in c.credentials],
+        "integrations": integrations_status,
         "recent_reports": [
             {"id": r.id, "period": r.period, "status": r.send_status, "sent_at": r.sent_at}
             for r in sorted(c.reports, key=lambda r: r.created_at, reverse=True)[:5]
@@ -117,6 +127,17 @@ async def delete_customer(
     await db.commit()
 
 
+# ── Generiska integrations-endpoints (funkar för unifi/microsoft/acronis/cloudfactory) ──
+
+@router.get("/integrations/available")
+async def list_available_integrations(_: User = Depends(current_user)):
+    """Vilka integrationstyper som finns i systemet, oavsett kund."""
+    return [
+        {"key": k, "display_name": m.display_name, "icon": m.icon, "description": m.description}
+        for k, m in INTEGRATIONS.items()
+    ]
+
+
 @router.put("/{customer_id}/credentials/{integration_type}")
 async def upsert_credential(
     customer_id: str,
@@ -125,6 +146,9 @@ async def upsert_credential(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(current_user),
 ):
+    if integration_type not in INTEGRATIONS:
+        raise HTTPException(400, f"Okänd integrationstyp: {integration_type}")
+
     cred = await db.scalar(
         select(IntegrationCredential).where(
             IntegrationCredential.customer_id == customer_id,
@@ -132,11 +156,11 @@ async def upsert_credential(
         )
     )
     if not cred:
-        cred = IntegrationCredential(
-            customer_id=customer_id,
-            integration_type=integration_type,
-        )
+        cred = IntegrationCredential(customer_id=customer_id, integration_type=integration_type)
         db.add(cred)
+
+    # Ny credentials innebär att tidigare verifiering inte längre gäller
+    cred.is_verified = False
 
     if body.api_key is not None:
         cred.api_key = encrypt(body.api_key)
@@ -151,104 +175,82 @@ async def upsert_credential(
     return {"status": "ok", "integration_type": integration_type}
 
 
-@router.post("/{customer_id}/credentials/unifi/verify")
-async def verify_unifi_key(
+@router.delete("/{customer_id}/credentials/{integration_type}", status_code=204)
+async def delete_credential(
     customer_id: str,
+    integration_type: str,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(current_user),
 ):
-    """Testar att den sparade UniFi API-nyckeln faktiskt fungerar."""
     cred = await db.scalar(
         select(IntegrationCredential).where(
             IntegrationCredential.customer_id == customer_id,
-            IntegrationCredential.integration_type == "unifi",
+            IntegrationCredential.integration_type == integration_type,
         )
     )
-    if not cred or not cred.api_key:
-        raise HTTPException(400, "Ingen UniFi API-nyckel sparad för denna kund")
+    if cred:
+        await db.delete(cred)
+        await db.commit()
 
-    key = decrypt(cred.api_key)
+
+@router.post("/{customer_id}/credentials/{integration_type}/verify")
+async def verify_credential(
+    customer_id: str,
+    integration_type: str,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(current_user),
+):
+    """
+    Testar att sparade credentials för en integration faktiskt fungerar.
+    Funkar identiskt för alla integrationstyper via det gemensamma gränssnittet.
+    """
+    if integration_type not in INTEGRATIONS:
+        raise HTTPException(400, f"Okänd integrationstyp: {integration_type}")
+
+    cred = await db.scalar(
+        select(IntegrationCredential).where(
+            IntegrationCredential.customer_id == customer_id,
+            IntegrationCredential.integration_type == integration_type,
+        )
+    )
+    if not cred:
+        raise HTTPException(400, f"Inga {integration_type}-credentials sparade för denna kund")
+
+    client = get_client(integration_type)
+    ok, message = await client.verify(cred)
+
+    if ok:
+        cred.is_verified = True
+        cred.last_verified_at = datetime.now(timezone.utc)
+        await db.commit()
+
+    return {"status": "ok" if ok else "error", "detail": message}
+
+
+@router.get("/{customer_id}/integrations/{integration_type}/live")
+async def get_integration_live_data(
+    customer_id: str,
+    integration_type: str,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(current_user),
+):
+    """Hämtar live-data för en specifik integration och kund."""
+    if integration_type not in INTEGRATIONS:
+        raise HTTPException(400, f"Okänd integrationstyp: {integration_type}")
+
+    cred = await db.scalar(
+        select(IntegrationCredential).where(
+            IntegrationCredential.customer_id == customer_id,
+            IntegrationCredential.integration_type == integration_type,
+        )
+    )
+    if not cred:
+        raise HTTPException(400, f"Ingen {integration_type}-integration konfigurerad")
+
+    client = get_client(integration_type)
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            r = await client.get(
-                "https://api.ui.com/v1/hosts",
-                headers={"X-API-Key": key, "Accept": "application/json"},
-                params={"pageSize": 1},
-            )
-        if r.status_code == 200:
-            cred.is_verified = True
-            cred.last_verified_at = datetime.now(timezone.utc)
-            await db.commit()
-            return {"status": "ok", "http_status": r.status_code}
-        return {"status": "error", "http_status": r.status_code, "detail": r.text[:200]}
+        return await client.fetch_report_data(cred)
+    except NotImplementedError as e:
+        raise HTTPException(501, str(e))
     except Exception as e:
-        return {"status": "error", "detail": str(e)}
-
-
-@router.get("/{customer_id}/unifi/live")
-async def get_customer_unifi_live(
-    customer_id: str,
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(current_user),
-):
-    """Hämtar live-data direkt från UniFi API för en specifik kund."""
-    cred = await db.scalar(
-        select(IntegrationCredential).where(
-            IntegrationCredential.customer_id == customer_id,
-            IntegrationCredential.integration_type == "unifi",
-        )
-    )
-    if not cred or not cred.api_key:
-        raise HTTPException(400, "Ingen UniFi API-nyckel konfigurerad")
-
-    from app.unifi.client import UnifiClient
-    with UnifiClient(decrypt(cred.api_key)) as client:
-        sites = client.list_sites()
-        hosts = client.list_hosts()
-        devices = client.list_devices()
-
-    return {
-        "sites": [
-            {
-                "site_id": s.site_id,
-                "name": s.name,
-                "total_devices": s.total_devices,
-                "offline_devices": s.offline_devices,
-                "pending_updates": s.pending_updates,
-                "wifi_clients": s.wifi_clients,
-                "wired_clients": s.wired_clients,
-                "gateway_model": s.gateway_model,
-                "ips_rules_count": s.ips_rules_count,
-                "wans": [
-                    {
-                        "name": w.name,
-                        "uptime_percentage": w.uptime_percentage,
-                        "isp_name": w.isp_name,
-                        "isp_organization": w.isp_organization,
-                        "external_ip": w.external_ip,
-                        "has_issues": w.has_issues,
-                        "issue_count": w.issue_count,
-                    }
-                    for w in s.wans
-                ],
-            }
-            for s in sites
-        ],
-        "devices": [
-            {
-                "id": d.id,
-                "name": d.name,
-                "model": d.model,
-                "product_line": d.product_line,
-                "is_console": d.is_console,
-                "is_online": d.is_online,
-                "firmware_version": d.firmware_version,
-                "firmware_status": d.firmware_status,
-                "needs_update": d.needs_update,
-                "update_available_version": d.update_available_version,
-                "adoption_time": d.adoption_time,
-            }
-            for d in devices
-        ],
-        "host_count": len(hosts),
-    }
+        raise HTTPException(502, f"Kunde inte hämta data: {e}")
