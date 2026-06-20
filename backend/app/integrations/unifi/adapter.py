@@ -7,6 +7,7 @@ egna enheter och WANs. Oanvända WAN-portar (uptime_percentage = None) filtreras
 """
 
 import asyncio
+import logging
 from collections import defaultdict
 
 import httpx
@@ -14,6 +15,94 @@ import httpx
 from app.core.security import decrypt
 from app.db.models import IntegrationCredential
 from app.integrations.unifi.client import UnifiClient
+
+logger = logging.getLogger(__name__)
+
+
+def _extract_periods(metrics: dict) -> list[dict]:
+    """
+    UniFi-svaret kan ha periods nästlade på flera sätt beroende på version:
+      data: [ {hostId, siteId, periods:[...]}, ... ]            (lista direkt)
+      data: { metrics: [ {periods:[...]}, ... ] }               (metrics-wrapper)
+    Den här funktionen plockar ut alla periods oavsett vilket.
+    """
+    data = metrics.get("data")
+    periods: list[dict] = []
+    if isinstance(data, list):
+        for entry in data:
+            if isinstance(entry, dict):
+                periods.extend(entry.get("periods") or [])
+    elif isinstance(data, dict):
+        for entry in data.get("metrics") or []:
+            if isinstance(entry, dict):
+                periods.extend(entry.get("periods") or [])
+        # vissa svar lägger periods direkt under data
+        periods.extend(data.get("periods") or [])
+    return periods
+
+
+def _wan_metric(period: dict, *keys):
+    """Hämtar ett WAN-värde ur en period oavsett om det ligger under
+    period['data']['wan'] eller direkt i period."""
+    wan = (period.get("data") or {}).get("wan") or period.get("wan") or {}
+    for k in keys:
+        if k in wan and wan[k] is not None:
+            return wan[k]
+    return None
+
+
+def _aggregate_isp_metrics(all_metrics: list[dict]):
+    """Returnerar (avg_latency_ms, avg_packet_loss_%, avg_uptime_%) eller None."""
+    all_periods: list[dict] = []
+    for m in all_metrics:
+        all_periods.extend(_extract_periods(m))
+
+    if not all_periods:
+        if all_metrics:
+            logger.warning(
+                "ISP-mått: inga periods hittades. Toppnivå-nycklar: %s | data-typ: %s",
+                list(all_metrics[0].keys()),
+                type(all_metrics[0].get("data")).__name__,
+            )
+        return None, None, None
+
+    # Logga strukturen på första perioden en gång så vi ser exakta fältnamn
+    logger.info("ISP-mått: exempelperiod = %s", all_periods[0])
+
+    lats, losses, ups, downs = [], [], [], []
+    for p in all_periods:
+        lat = _wan_metric(p, "avgLatency", "latencyAvg", "latency")
+        loss = _wan_metric(p, "packetLoss", "packetLossAvg")
+        up = _wan_metric(p, "uptime")
+        down = _wan_metric(p, "downtime")
+        if lat is not None:
+            lats.append(lat)
+        if loss is not None:
+            losses.append(loss)
+        if up is not None:
+            ups.append(up)
+        if down is not None:
+            downs.append(down)
+
+    if not (lats or losses or ups):
+        return None, None, None
+
+    avg_latency = round(sum(lats) / len(lats)) if lats else None
+    avg_loss = round(sum(losses) / len(losses), 1) if losses else None
+
+    # uptime kan vara antingen procent (<=100) eller sekunder per period.
+    avg_uptime = None
+    if ups:
+        total_up = sum(ups)
+        total_down = sum(downs) if downs else 0
+        if total_up + total_down > 0 and (total_up > 100 or total_down > 0):
+            # ser ut som sekunder → beräkna procent av total tid
+            avg_uptime = round(total_up / (total_up + total_down) * 100, 2)
+        else:
+            # redan i procent
+            avg_uptime = round(total_up / len(ups), 2)
+
+    return avg_latency, avg_loss, avg_uptime
 
 
 class UnifiIntegration:
@@ -51,8 +140,11 @@ class UnifiIntegration:
                 try:
                     m = client.query_isp_metrics(site_id=s.site_id, host_id=s.host_id)
                     all_isp_metrics.append(m)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(
+                        "ISP-mått-query misslyckades för site %s (host %s): %s",
+                        s.site_id, s.host_id, e,
+                    )
 
         # Gruppera site-statistik per host_id
         sites_by_host: dict = defaultdict(list)
@@ -120,26 +212,10 @@ class UnifiIntegration:
             all_devices_flat.extend(device_list)
 
         # Aggregera ISP-mått över alla siter till enkla snitttal för UI/PDF
-        isp_avg_latency = isp_packet_loss = isp_uptime = None
         isp_metrics_raw = all_isp_metrics[0] if all_isp_metrics else None
-        all_periods: list[dict] = []
-        for m in all_isp_metrics:
-            try:
-                for entry in m.get("data", []):
-                    all_periods.extend(entry.get("periods", []))
-            except Exception:
-                pass
-        if all_periods:
-            try:
-                lats = [p["data"]["wan"]["avgLatency"] for p in all_periods if p.get("data", {}).get("wan", {}).get("avgLatency") is not None]
-                losses = [p["data"]["wan"]["packetLoss"] for p in all_periods if p.get("data", {}).get("wan", {}).get("packetLoss") is not None]
-                ups = [p["data"]["wan"]["uptime"] for p in all_periods if p.get("data", {}).get("wan", {}).get("uptime") is not None]
-                if lats:
-                    isp_avg_latency = round(sum(lats) / len(lats))
-                    isp_packet_loss = round(sum(losses) / len(losses), 1) if losses else 0
-                    isp_uptime = round(sum(ups) / len(ups), 2) if ups else None
-            except Exception:
-                pass
+        isp_avg_latency, isp_packet_loss, isp_uptime = _aggregate_isp_metrics(
+            all_isp_metrics
+        )
 
         return {
             "integration": "unifi",
