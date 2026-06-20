@@ -1049,11 +1049,24 @@ async function submitEditCustomer() {
 
 async function loadCustomerDetail(customerId) {
   const gen = _navGen;
-  document.getElementById('cd-name').textContent = 'Laddar...';
-  document.getElementById('cd-sub').textContent = '';
-  document.getElementById('cd-hero-stats').innerHTML = '';
-  document.getElementById('cd-int-row').innerHTML = '';
-  document.getElementById('cd-unifi-section').style.display = 'none';
+
+  // Skeleton omedelbart
+  document.getElementById('cd-eyebrow').textContent = 'Kund';
+  document.getElementById('cd-name').innerHTML = '<span class="skel-box" style="display:inline-block;width:200px;height:24px;vertical-align:middle"></span>';
+  document.getElementById('cd-sub').innerHTML = '<span class="skel-box" style="display:inline-block;width:260px;height:13px;vertical-align:middle;margin-top:6px"></span>';
+  document.getElementById('cd-hero-stats').innerHTML = [140,100,120,110].map(w =>
+    `<div><div class="skel-box" style="width:${w}px;height:28px;margin-bottom:6px"></div><div class="skel-box" style="width:60px;height:11px"></div></div>`
+  ).join('');
+  document.getElementById('cd-int-row').innerHTML = [1,2,3,4].map(() =>
+    `<div class="int-p"><div style="display:flex;flex-direction:column;gap:6px"><div class="skel-box" style="width:80px;height:13px"></div><div class="skel-box" style="width:60px;height:11px"></div></div></div>`
+  ).join('');
+  document.getElementById('cd-unifi-section').style.display = 'block';
+  document.getElementById('cd-unifi-section').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:13px">
+      <div class="card"><div class="ch"><span class="cht">WAN</span></div><div class="cb">${[1,2].map(() => `<div class="skel-box" style="height:18px;margin-bottom:10px;border-radius:4px"></div>`).join('')}</div></div>
+      <div class="card"><div class="ch"><span class="cht">ISP-mått</span></div><div class="cb"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">${[1,2,3].map(() => `<div class="skel-box" style="height:60px;border-radius:var(--r)"></div>`).join('')}</div></div></div>
+    </div>
+    <div class="card"><div class="ch"><span class="cht">Enheter</span></div><div class="cb">${[1,2,3,4,5].map(() => `<div class="skel-box" style="height:16px;margin-bottom:10px;border-radius:4px"></div>`).join('')}</div></div>`;
   document.getElementById('cd-no-data').style.display = 'none';
   document.getElementById('cd-error').style.display = 'none';
 
