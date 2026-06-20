@@ -116,7 +116,7 @@ async def run_report_for_customer(customer_id: str) -> None:
                 subject=f"Nätverksrapport {month_sv} {year} — {customer.name}",
                 body_html=_email_body(customer.name, month_sv, year, included),
                 pdf_path=pdf_path,
-                pdf_filename=f"insight-rapport-{period}-{customer.name.lower().replace(' ', '-')}.pdf",
+                pdf_filename=f"{customer.name} - {period}.pdf",
             )
             report.send_status = "sent"
             report.sent_at = datetime.utcnow()

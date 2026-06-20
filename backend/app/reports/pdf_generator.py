@@ -181,7 +181,9 @@ body {
 
 /* ── Tabell ── */
 table { width: 100%; border-collapse: collapse; margin-bottom: 2px }
+thead { display: table-header-group }
 thead tr { page-break-after: avoid; break-after: avoid }
+tbody { page-break-inside: avoid; break-inside: avoid }
 th {
   font-size: 9px;
   font-weight: 700;
@@ -284,13 +286,13 @@ UNIFI_SECTION_TEMPLATE = """
       <th style="text-align:right">Status</th>
     </tr>
   </thead>
-  <tbody>
-    {% for grp in host.device_groups %}
-    <tr class="grp-row" style="page-break-after:avoid;break-after:avoid">
+  {% for grp in host.device_groups %}
+  <tbody style="page-break-inside:avoid;break-inside:avoid">
+    <tr class="grp-row">
       <td colspan="4">{{ grp.label }} &mdash; {{ grp.devices|length }} st</td>
     </tr>
     {% for d in grp.devices %}
-    <tr style="page-break-inside:avoid;break-inside:avoid">
+    <tr>
       <td><span class="dev-name">{{ d.name }}</span></td>
       <td style="color:#5C616B">{{ d.model or '&mdash;' }}</td>
       <td>
@@ -310,8 +312,8 @@ UNIFI_SECTION_TEMPLATE = """
       </td>
     </tr>
     {% endfor %}
-    {% endfor %}
   </tbody>
+  {% endfor %}
 </table>
 {% endif %}
 
@@ -349,9 +351,9 @@ ACRONIS_SECTION_TEMPLATE = """
       <th style="text-align:right">Skyddad data</th>
     </tr>
   </thead>
-  <tbody>
-    {% for job in jobs %}
-    <tr style="page-break-inside:avoid;break-inside:avoid">
+  {% for job in jobs %}
+  <tbody style="page-break-inside:avoid;break-inside:avoid">
+    <tr>
       <td><span class="dev-name">{{ job.device_name }}</span></td>
       <td style="color:#5C616B">{{ job.last_run or '&mdash;' }}</td>
       <td>
@@ -361,8 +363,8 @@ ACRONIS_SECTION_TEMPLATE = """
       </td>
       <td style="text-align:right;color:#5C616B">{{ job.protected_gb or '&mdash;' }} GB</td>
     </tr>
-    {% endfor %}
   </tbody>
+  {% endfor %}
 </table>
 """
 
@@ -377,16 +379,16 @@ CLOUDFACTORY_SECTION_TEMPLATE = """
       <th style="text-align:right">Förnyas</th>
     </tr>
   </thead>
-  <tbody>
-    {% for lic in licenses %}
-    <tr style="page-break-inside:avoid;break-inside:avoid">
+  {% for lic in licenses %}
+  <tbody style="page-break-inside:avoid;break-inside:avoid">
+    <tr>
       <td><span class="dev-name">{{ lic.product_name }}</span></td>
       <td>{{ lic.quantity }}</td>
       <td>{{ lic.active }}</td>
       <td style="text-align:right;color:#5C616B">{{ lic.expires_at or '&mdash;' }}</td>
     </tr>
-    {% endfor %}
   </tbody>
+  {% endfor %}
 </table>
 """
 
