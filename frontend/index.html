@@ -405,6 +405,27 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
 
   /* Ta bort extra padding-bottom (ingen bottom nav längre) */
   .main{padding-bottom:0}
+
+  /* ── Rapportlista ── */
+  .rr{flex-wrap:wrap;gap:10px;padding:14px 16px}
+  .rr > div:last-child{width:100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .rr > div:last-child .btn{flex:1;justify-content:center;min-width:0}
+
+  /* Schemaläggningskort → 1 kolumn */
+  #v-reports .cb > div[style*="grid-template-columns"]{grid-template-columns:1fr!important}
+
+  /* Formulär-knappar → stapla */
+  #v-add-customer .fw > div[style*="display:flex"],
+  #v-edit-customer .fw > div[style*="display:flex"]{flex-direction:column}
+  #v-add-customer .fw > div[style*="display:flex"] .btn,
+  #v-edit-customer .fw > div[style*="display:flex"] .btn{width:100%;justify-content:center}
+
+  /* Användartabell */
+  #users-tbody tr{display:block;padding:12px 16px;border-bottom:1px solid var(--border)}
+  #users-tbody tr:last-child{border-bottom:none}
+  #users-tbody td{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border:none;font-size:13px}
+  #users-tbody td:before{content:attr(data-label);font-size:11px;font-weight:600;color:var(--muted);flex-shrink:0;margin-right:8px}
+  table:has(#users-tbody) thead{display:none}
 }
 
 /* ── Integration pills ── */
