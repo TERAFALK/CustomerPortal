@@ -74,6 +74,15 @@ class GraphClient:
         users = users_raw.get("value") or []
         total_users = users_raw.get("@odata.count") or len(users)
         enabled_users = sum(1 for u in users if u.get("accountEnabled"))
+        user_list = [
+            {
+                "name": u.get("displayName") or u.get("userPrincipalName", ""),
+                "email": u.get("mail") or u.get("userPrincipalName", ""),
+                "title": u.get("jobTitle") or "",
+                "enabled": u.get("accountEnabled", False),
+            }
+            for u in users
+        ]
 
         # MFA
         mfa_regs = mfa_raw.get("value") or []
@@ -94,6 +103,7 @@ class GraphClient:
             "available": True,
             "total_users": total_users,
             "enabled_users": enabled_users,
+            "users": user_list,
             "licenses": licenses,
             "mfa_capable": mfa_capable,
             "mfa_registered": mfa_registered,
@@ -108,7 +118,7 @@ class GraphClient:
     async def _fetch_users(self, client):
         return await self._get(client, "/users", params={
             "$count": "true",
-            "$select": "id,accountEnabled",
+            "$select": "id,displayName,userPrincipalName,mail,jobTitle,accountEnabled,createdDateTime",
             "$top": "999",
         })
 
@@ -133,28 +143,84 @@ async def _gather(*coros):
 
 
 _SKU_NAMES = {
-    "SPE_E3": "Microsoft 365 E3",
-    "SPE_E5": "Microsoft 365 E5",
+    # Microsoft 365 Business
     "O365_BUSINESS_PREMIUM": "Microsoft 365 Business Premium",
     "O365_BUSINESS_ESSENTIALS": "Microsoft 365 Business Basic",
+    "O365_BUSINESS": "Microsoft 365 Apps for Business",
     "SMB_BUSINESS_PREMIUM": "Microsoft 365 Business Premium",
     "SMB_BUSINESS": "Microsoft 365 Apps for Business",
+    "SMB_BUSINESS_ESSENTIALS": "Microsoft 365 Business Basic",
+    "SPB": "Microsoft 365 Business Standard",
+    "MICROSOFT_BUSINESS_CENTER": "Microsoft 365 Business Center",
+    # Microsoft 365 Enterprise
+    "SPE_E3": "Microsoft 365 E3",
+    "SPE_E5": "Microsoft 365 E5",
+    "SPE_F1": "Microsoft 365 F1",
+    "SPE_E3_USGOV_DOD": "Microsoft 365 E3 (Gov)",
+    "SPE_E3_USGOV_GCCHIGH": "Microsoft 365 E3 (Gov High)",
+    # Office 365
     "ENTERPRISEPACK": "Office 365 E3",
     "ENTERPRISEPREMIUM": "Office 365 E5",
+    "STANDARDPACK": "Office 365 E1",
+    "DESKLESSPACK": "Office 365 F3",
+    "ENTERPRISEPACK_USGOV_DOD": "Office 365 E3 (Gov)",
+    # Exchange
     "EXCHANGESTANDARD": "Exchange Online (Plan 1)",
     "EXCHANGEENTERPRISE": "Exchange Online (Plan 2)",
+    "EXCHANGEESSENTIALS": "Exchange Online Essentials",
+    "EXCHANGE_S_DESKLESS": "Exchange Online Kiosk",
+    # Teams
+    "TEAMS_ESSENTIALS": "Microsoft Teams Essentials",
+    "TEAMS_FREE": "Microsoft Teams (gratis)",
+    "TEAMS_EXPLORATORY": "Microsoft Teams Exploratory",
+    "Microsoft_Teams_Rooms_Basic": "Teams Rooms Basic",
+    "Microsoft_Teams_Rooms_Standard": "Teams Rooms Standard",
+    # Security & Compliance
     "EMS": "Enterprise Mobility + Security E3",
     "EMSPREMIUM": "Enterprise Mobility + Security E5",
     "AAD_PREMIUM": "Azure AD Premium P1",
     "AAD_PREMIUM_P2": "Azure AD Premium P2",
-    "INTUNE_A": "Microsoft Intune",
-    "PROJECTPREMIUM": "Project Plan 5",
-    "VISIOCLIENT": "Visio Plan 2",
+    "INTUNE_A": "Microsoft Intune Plan 1",
+    "INTUNE_A_D": "Microsoft Intune Plan 2",
+    "DEFENDER_ENDPOINT_P1": "Microsoft Defender for Endpoint P1",
+    "DEFENDER_ENDPOINT_P2": "Microsoft Defender for Endpoint P2",
+    "ATP_ENTERPRISE": "Microsoft Defender for Office 365 P1",
+    "THREAT_INTELLIGENCE": "Microsoft Defender for Office 365 P2",
+    "INFORMATION_PROTECTION_COMPLIANCE": "Microsoft 365 E5 Compliance",
+    # Power Platform
     "POWER_BI_PRO": "Power BI Pro",
-    "TEAMS_ESSENTIALS": "Microsoft Teams Essentials",
-    "Microsoft_Teams_Rooms_Basic": "Teams Rooms Basic",
+    "POWER_BI_PREMIUM_PER_USER": "Power BI Premium Per User",
+    "POWER_BI_STANDARD": "Power BI (gratis)",
+    "POWERAPPS_PER_USER": "Power Apps per user",
+    "FLOW_PER_USER": "Power Automate per user",
+    "FLOW_FREE": "Power Automate (gratis)",
+    # Project & Visio
+    "PROJECTPREMIUM": "Project Plan 5",
+    "PROJECTPROFESSIONAL": "Project Plan 3",
+    "PROJECTESSENTIALS": "Project Plan 1",
+    "VISIOCLIENT": "Visio Plan 2",
+    "VISIO_PLAN1_DEPT": "Visio Plan 1",
+    # Copilot & AI
+    "Microsoft_365_Copilot": "Microsoft 365 Copilot",
+    "COPILOT_FOR_MICROSOFT_365": "Microsoft 365 Copilot",
+    # Dynamics 365
+    "DYN365_ENTERPRISE_SALES": "Dynamics 365 Sales Enterprise",
+    "DYN365_SALES_PREMIUM_VIRAL": "Dynamics 365 Sales Premium (Trial)",
+    "DYN365_TEAM_MEMBERS": "Dynamics 365 Team Members",
+    "DYN365_BUSINESS_CENTRAL_ESSENTIAL": "Dynamics 365 Business Central Essential",
+    "DYN365_BUSINESS_CENTRAL_PREMIUM": "Dynamics 365 Business Central Premium",
+    # Other
+    "DEVELOPERPACK_E5": "Microsoft 365 E5 Developer",
+    "WINDOWS_STORE": "Microsoft Store for Business",
+    "MCOCAP": "Microsoft Teams Phone",
+    "MCOSTANDARD": "Skype for Business Online (Plan 2)",
 }
 
 
 def _friendly_sku(sku: str) -> str:
-    return _SKU_NAMES.get(sku, sku.replace("_", " ").title())
+    if sku in _SKU_NAMES:
+        return _SKU_NAMES[sku]
+    # Fallback: replace underscores, fix casing (keep all-uppercase words as-is)
+    parts = sku.replace("_", " ").split()
+    formatted = " ".join(p if p.isupper() and len(p) > 2 else p.capitalize() for p in parts)
+    return formatted

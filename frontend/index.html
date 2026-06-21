@@ -384,31 +384,40 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
       </div>
 
       <div id="cd-microsoft-section" style="display:none">
-        <div class="ms-grid">
+        <div class="ms-grid" style="margin-bottom:13px">
           <div class="card">
             <div class="ch"><span class="cht">Användare</span></div>
             <div class="cb">
               <div class="mx" id="cd-ms-users">
                 <div class="mbox"><div class="mv" id="cd-ms-total-users">—</div><div class="ml">Totalt</div></div>
                 <div class="mbox"><div class="mv" id="cd-ms-enabled-users">—</div><div class="ml">Aktiva</div></div>
-                <div class="mbox"><div class="mv" id="cd-ms-mfa">—</div><div class="ml">MFA aktivt</div></div>
+                <div class="mbox"><div class="mv" id="cd-ms-mfa">—</div><div class="ml">MFA</div></div>
               </div>
             </div>
           </div>
           <div class="card">
             <div class="ch"><span class="cht">Secure Score</span></div>
-            <div class="cb" style="display:flex;align-items:center;justify-content:center;min-height:80px">
-              <div class="ms-score-ring" id="cd-ms-score">
-                <div class="ms-score-val">—</div>
-                <div class="ms-score-max"></div>
+            <div class="cb" style="display:flex;align-items:center;justify-content:center;padding:16px 0" id="cd-ms-score-wrap">
+              <div id="cd-ms-score" style="text-align:center">
+                <div style="font-size:36px;font-weight:700;line-height:1;color:var(--blue)">—</div>
+                <div style="font-size:12px;color:var(--sub);margin-top:4px"></div>
               </div>
             </div>
           </div>
         </div>
-        <div class="card">
+        <div class="card" style="margin-bottom:13px">
           <div class="ch"><span class="cht">Licenser</span></div>
           <div class="cb" id="cd-ms-licenses">
             <div style="color:var(--muted);font-size:13px">Laddar...</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ch"><span class="cht">Användarlista</span><span class="tag tag-m" id="cd-ms-users-tag"></span></div>
+          <div class="cb0">
+            <table class="tbl">
+              <thead><tr><th>Namn</th><th>E-post</th><th>Titel</th><th style="text-align:center">Status</th><th style="text-align:center">MFA</th></tr></thead>
+              <tbody id="cd-ms-users-tbody"><tr><td colspan="5" style="color:var(--muted);text-align:center;padding:14px">Laddar...</td></tr></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -1201,44 +1210,96 @@ async function loadMicrosoftSection(customerId, gen) {
 function renderMicrosoftData(data) {
   document.getElementById('cd-microsoft-section').style.display = 'block';
 
+  // Användarsummering
   document.getElementById('cd-ms-total-users').textContent = data.total_users ?? '—';
   document.getElementById('cd-ms-enabled-users').textContent = data.enabled_users ?? '—';
-  const mfaPct = data.mfa_total > 0 ? Math.round((data.mfa_registered / data.mfa_total) * 100) : null;
-  document.getElementById('cd-ms-mfa').textContent = mfaPct !== null ? `${mfaPct}%` : '—';
 
+  // MFA — visa X/Y om procent ej tillgänglig
+  const mfaEl = document.getElementById('cd-ms-mfa');
+  const mfaPct = data.mfa_total > 0 ? Math.round((data.mfa_registered / data.mfa_total) * 100) : null;
+  if (mfaPct !== null) {
+    mfaEl.textContent = `${mfaPct}%`;
+    mfaEl.title = `${data.mfa_registered} av ${data.mfa_total} registrerade`;
+  } else if (data.mfa_registered > 0) {
+    mfaEl.textContent = `${data.mfa_registered}`;
+  } else {
+    mfaEl.textContent = '—';
+    mfaEl.title = 'Kräver UserAuthenticationMethod.Read.All-behörighet';
+  }
+
+  // Secure Score
   const scoreEl = document.getElementById('cd-ms-score');
   if (data.secure_score != null) {
-    scoreEl.innerHTML = `<div class="ms-score-val">${Math.round(data.secure_score)}</div><div class="ms-score-max">av ${Math.round(data.secure_score_max ?? 0)}</div>`;
+    const pct = data.secure_score_max > 0 ? Math.round(data.secure_score / data.secure_score_max * 100) : 0;
+    const color = pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--yellow,#f59e0b)' : 'var(--red)';
+    scoreEl.innerHTML = `
+      <div style="font-size:40px;font-weight:700;line-height:1;color:${color}">${Math.round(data.secure_score)}</div>
+      <div style="font-size:13px;color:var(--sub);margin-top:4px">av ${Math.round(data.secure_score_max ?? 0)} möjliga</div>
+      <div style="margin-top:8px">
+        <div style="height:6px;background:var(--border);border-radius:3px;width:140px">
+          <div style="height:6px;background:${color};border-radius:3px;width:${pct}%"></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:3px">${pct}%</div>
+      </div>`;
   } else {
     scoreEl.innerHTML = `<div style="color:var(--muted);font-size:13px">Ej tillgänglig</div>`;
   }
 
+  // Licenser
   const licEl = document.getElementById('cd-ms-licenses');
   const licenses = data.licenses || [];
   if (!licenses.length) {
     licEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:4px 0">Inga licenser hittades</div>';
   } else {
-    licEl.innerHTML = licenses.map(l => `
+    licEl.innerHTML = licenses.map(l => {
+      const pct = l.total > 0 ? Math.round(l.assigned / l.total * 100) : 0;
+      const barColor = pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--yellow,#f59e0b)' : 'var(--blue)';
+      // Göm om total är extremt stor (trial/viral med 10000 platser)
+      const countText = l.total >= 9999 ? `${l.assigned} tilldelade` : `${l.assigned} av ${l.total} tilldelade`;
+      const showBar = l.total < 9999;
+      return `
       <div class="ms-lic-row">
-        <div>
+        <div style="flex:1">
           <div class="ms-lic-name">${escapeHtml(l.name)}</div>
-          <div class="ms-lic-count">${l.assigned} av ${l.total} tilldelade</div>
+          <div class="ms-lic-count">${countText}</div>
         </div>
-        <div style="min-width:120px">
+        ${showBar ? `<div style="min-width:140px">
           <div class="prg">
-            <div class="prg-bg"><div class="prg-f" style="width:${l.total > 0 ? Math.round(l.assigned/l.total*100) : 0}%;background:var(--blue)"></div></div>
-            <span style="font-size:12px;font-weight:600;color:var(--sub);min-width:32px;text-align:right">${l.total > 0 ? Math.round(l.assigned/l.total*100) : 0}%</span>
+            <div class="prg-bg"><div class="prg-f" style="width:${pct}%;background:${barColor}"></div></div>
+            <span style="font-size:12px;font-weight:600;color:var(--sub);min-width:36px;text-align:right">${pct}%</span>
           </div>
-        </div>
-      </div>`).join('');
+        </div>` : ''}
+      </div>`;
+    }).join('');
   }
 
-  // Hero-stats för Microsoft
+  // Användarlista
+  const users = data.users || [];
+  const mfaByEmail = {};
+  // Bygg MFA-karta om vi har datan (mfa_total > 0 indikerar att API:et svarade)
+  const tbody = document.getElementById('cd-ms-users-tbody');
+  const tag = document.getElementById('cd-ms-users-tag');
+  if (tag) tag.textContent = users.length;
+  if (!users.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:14px">Inga användare hittades</td></tr>';
+  } else {
+    tbody.innerHTML = users
+      .sort((a, b) => a.name.localeCompare(b.name, 'sv'))
+      .map(u => `<tr>
+        <td style="font-weight:500">${escapeHtml(u.name)}</td>
+        <td style="color:var(--sub);font-size:13px">${escapeHtml(u.email)}</td>
+        <td style="color:var(--sub);font-size:13px">${escapeHtml(u.title)}</td>
+        <td style="text-align:center"><span class="b ${u.enabled ? 'b-ok' : 'b-muted'}">${u.enabled ? 'Aktiv' : 'Inaktiv'}</span></td>
+        <td style="text-align:center;color:var(--muted);font-size:12px">—</td>
+      </tr>`).join('');
+  }
+
+  // Hero-stats
   document.getElementById('cd-hero-stats').innerHTML = `
     <div><div class="hs-v">${data.total_users ?? '—'}</div><div class="hs-l">Användare</div></div>
     ${mfaPct !== null ? `<div><div class="hs-v">${mfaPct}%</div><div class="hs-l">MFA-täckning</div></div>` : ''}
     ${data.secure_score != null ? `<div><div class="hs-v">${Math.round(data.secure_score)}/${Math.round(data.secure_score_max ?? 0)}</div><div class="hs-l">Secure Score</div></div>` : ''}
-    <div><div class="hs-v">${(data.licenses || []).length}</div><div class="hs-l">Licenstyper</div></div>
+    <div><div class="hs-v">${licenses.length}</div><div class="hs-l">Licenstyper</div></div>
   `;
 }
 
