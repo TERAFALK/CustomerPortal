@@ -238,8 +238,6 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
 /* ── Mobile overlay ── */
 .sb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:199}
 
-/* ── Mobile bottom nav ── */
-.mobile-nav{display:none}
 
 /* ── Responsive ── */
 @media(max-width:768px){
@@ -389,21 +387,15 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
   /* Hero stats → wrap tighter */
   .hs-row{gap:20px}
 
-  /* Mobile bottom nav */
-  .mobile-nav{
-    display:flex;position:fixed;bottom:0;left:0;right:0;z-index:150;
-    background:#fff;border-top:1px solid var(--border);
-    height:64px;padding:0 4px;align-items:stretch;
-  }
-  .mn-item{
-    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    gap:3px;cursor:pointer;color:var(--muted);font-size:10px;font-weight:600;
-    border:none;background:none;padding:6px 2px;border-radius:var(--r);transition:color 0.12s;
-    letter-spacing:0.02em;
-  }
-  .mn-item i{font-size:22px;line-height:1}
-  .mn-item.active{color:var(--blue)}
-  .mn-item span{line-height:1}
+  /* Knappar i kundvy → staplas vertikalt, full bredd */
+  #cd-admin-actions{flex-direction:column;gap:8px}
+  #cd-admin-actions .btn{width:100%;justify-content:center;height:44px;font-size:14px}
+
+  /* Topbar: dölj "Uppdatera"-texten, behåll bara ikonen */
+  .topbar .btn-g.btn-sm span.btn-label{display:none}
+
+  /* Ta bort extra padding-bottom (ingen bottom nav längre) */
+  .main{padding-bottom:0}
 }
 
 /* ── Integration pills ── */
@@ -2390,22 +2382,6 @@ function escapeHtml(str) {
 }
 </script>
 
-<!-- Mobile bottom nav -->
-<nav class="mobile-nav" id="mobile-nav">
-  <button class="mn-item active" id="mn-dashboard" onclick="nav('dashboard');setMobileNav('dashboard')">
-    <i class="ti ti-layout-dashboard"></i><span>Översikt</span>
-  </button>
-  <button class="mn-item" id="mn-customers" onclick="nav('customers');setMobileNav('customers')">
-    <i class="ti ti-building-store"></i><span>Kunder</span>
-  </button>
-  <button class="mn-item" id="mn-reports" onclick="nav('reports');setMobileNav('reports')">
-    <i class="ti ti-file-description"></i><span>Rapporter</span>
-  </button>
-  <button class="mn-item" id="mn-settings" onclick="nav('settings');setMobileNav('settings')">
-    <i class="ti ti-settings"></i><span>Inställningar</span>
-  </button>
-</nav>
-
 <script>
 function toggleSidebar() {
   const sb = document.querySelector('.sidebar');
@@ -2431,11 +2407,6 @@ function updateHamburger() {
 window.addEventListener('resize', updateHamburger);
 updateHamburger();
 
-function setMobileNav(key) {
-  document.querySelectorAll('.mn-item').forEach(el => el.classList.remove('active'));
-  const el = document.getElementById('mn-' + key);
-  if(el) el.classList.add('active');
-}
 </script>
 </body>
 </html>
