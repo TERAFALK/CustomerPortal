@@ -1188,7 +1188,7 @@ async function switchIntegrationTab(key, customerId, gen) {
 }
 
 async function showMsDebug() {
-  const customerId = _currentCustomer?.id;
+  const customerId = currentCustomerId;
   if (!customerId) return;
   const modal = document.createElement('div');
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
