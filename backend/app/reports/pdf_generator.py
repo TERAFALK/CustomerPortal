@@ -12,6 +12,7 @@ from app.core.time_utils import now_stockholm
 from jinja2 import Environment, BaseLoader
 
 from app.core import app_settings
+from app.core.config import settings
 
 BASE_STYLE = """
 @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700&display=swap');
