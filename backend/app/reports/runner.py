@@ -151,9 +151,9 @@ _LOGO_B64 = "PHN2ZyBpZD0iTGF5ZXJfMSIgZGF0YS1uYW1lPSJMYXllciAxIiB4bWxucz0iaHR0cDo
 def _email_body(customer_name: str, month: str, year: str, included_integrations: str) -> str:
     return f"""
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#141414">
-      <div style="background:#fff;padding:22px 28px;border:1px solid #e0e9f5;border-radius:8px 8px 0 0;display:flex;align-items:center;gap:12px">
+      <div style="background:#fff;padding:22px 28px;border:1px solid #e0e9f5;border-radius:8px 8px 0 0">
         <img src="data:image/svg+xml;base64,{_LOGO_B64}" width="130" height="16" alt="TERAFALK" style="display:block">
-        <span style="font-size:10px;font-weight:600;color:#9499A2;letter-spacing:0.08em;text-transform:uppercase;margin-top:2px">Insight</span>
+        <span style="display:block;font-size:10px;font-weight:600;color:#9499A2;letter-spacing:0.08em;text-transform:uppercase;margin-top:4px">Insight</span>
       </div>
       <div style="background:#fff;padding:28px;border:1px solid #e0e9f5;border-top:none;border-radius:0 0 8px 8px">
         <p style="margin:0 0 16px">Hej {customer_name},</p>

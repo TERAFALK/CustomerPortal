@@ -96,13 +96,13 @@ body {
   padding: 10px 16px;
   border-radius: 4px;
   margin-bottom: 18px;
-  margin-top: 8px;
+  margin-top: 0;
   break-before: auto;
   break-after: avoid;
 }
 .section-break {
   break-before: page;
-  height: 0;
+  height: 30px;
 }
 
 /* ── Mellanrubrik ── */
