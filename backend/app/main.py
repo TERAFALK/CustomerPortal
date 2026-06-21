@@ -19,6 +19,8 @@ async def lifespan(app: FastAPI):
     await seed_first_admin()
     await app_settings.load_from_db()
     start_scheduler()
+    from app.core.scheduler import reschedule_from_db
+    await reschedule_from_db()
     yield
 
 

@@ -29,9 +29,6 @@ async def init_db() -> None:
         ]:
             await conn.execute(text(stmt))
 
-    # Ladda sparat rapportschema från DB och applicera på scheduler
-    from app.core.scheduler import reschedule_from_db
-    await reschedule_from_db()
 
 
 async def get_db():
