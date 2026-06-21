@@ -1300,11 +1300,14 @@ function renderMicrosoftData(data) {
           'microsoftAuthenticatorPasswordless': 'Authenticator (lösenordsfri)',
         };
         const methods = (u.mfa_methods || []).map(m => methodLabels[m] || m).join(', ');
+        const hasLicense = (u.licenses || []).length > 0;
         const mfaBadge = u.mfa === true
           ? `<span class="b b-ok" style="font-size:10px" title="${methods}"><i class="ti ti-shield-check" style="font-size:11px"></i> ${methods || 'Ja'}</span>`
-          : u.mfa === false
-            ? '<span class="b b-err" style="font-size:10px"><i class="ti ti-shield-x" style="font-size:11px"></i> Nej</span>'
-            : '<span style="color:var(--muted);font-size:12px">—</span>';
+          : !hasLicense
+            ? '<span class="b b-muted" style="font-size:10px">N/A</span>'
+            : u.mfa === false
+              ? '<span class="b b-err" style="font-size:10px"><i class="ti ti-shield-x" style="font-size:11px"></i> Nej</span>'
+              : '<span style="color:var(--muted);font-size:12px">—</span>';
         return `<tr>
           <td style="font-weight:500">${escapeHtml(u.name)}</td>
           <td style="color:var(--sub);font-size:13px">${escapeHtml(u.email)}</td>

@@ -326,13 +326,19 @@ MICROSOFT_SECTION_TEMPLATE = """
 <div class="section-title">Microsoft 365</div>
 <div class="metrics">
   <div class="metric">
-    <div class="metric-val">{{ total_licenses }}</div>
-    <div class="metric-lbl">Licenser totalt</div>
+    <div class="metric-val">{{ total_users }}</div>
+    <div class="metric-lbl">Användare totalt</div>
   </div>
   <div class="metric">
-    <div class="metric-val">{{ mfa_enabled_count }}<span class="metric-unit">/{{ active_users }}</span></div>
-    <div class="metric-lbl">MFA aktiverat</div>
+    <div class="metric-val">{{ enabled_users }}</div>
+    <div class="metric-lbl">Aktiva användare</div>
   </div>
+  {% if mfa_total > 0 %}
+  <div class="metric">
+    <div class="metric-val">{{ mfa_pct }}<span class="metric-unit"> %</span></div>
+    <div class="metric-lbl">MFA-täckning</div>
+  </div>
+  {% endif %}
   {% if secure_score is not none %}
   <div class="metric">
     <div class="metric-val">{{ secure_score }}<span class="metric-unit">/{{ secure_score_max }}</span></div>
@@ -340,6 +346,68 @@ MICROSOFT_SECTION_TEMPLATE = """
   </div>
   {% endif %}
 </div>
+
+{% if licenses %}
+<div class="sub-label">Licenser</div>
+<table>
+  <thead>
+    <tr>
+      <th>Licens</th>
+      <th style="text-align:right">Tilldelade</th>
+      <th style="text-align:right">Totalt</th>
+      <th style="text-align:right">Nyttjandegrad</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for l in licenses %}
+    <tr>
+      <td><span class="dev-name">{{ l.name }}</span></td>
+      <td style="text-align:right">{{ l.assigned }}</td>
+      <td style="text-align:right">{% if l.total < 9999 %}{{ l.total }}{% else %}&mdash;{% endif %}</td>
+      <td style="text-align:right">{% if l.total > 0 and l.total < 9999 %}{{ (l.assigned / l.total * 100) | round | int }}%{% else %}&mdash;{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if users %}
+<div class="sub-label" style="margin-top:14px">Användare</div>
+<table>
+  <thead>
+    <tr>
+      <th>Namn</th>
+      <th>E-post</th>
+      <th>Licenser</th>
+      <th style="text-align:center">Status</th>
+      <th style="text-align:center">MFA</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for u in users %}
+    <tr>
+      <td><span class="dev-name">{{ u.name }}</span></td>
+      <td style="color:#5C616B;font-size:10px">{{ u.email }}</td>
+      <td style="font-size:10px;color:#5C616B">{{ u.licenses | join(', ') if u.licenses else '&mdash;' }}</td>
+      <td style="text-align:center">
+        {% if u.enabled %}<span class="badge s-ok">Aktiv</span>{% else %}<span class="badge" style="background:#F3F5F8;color:#5C616B">Inaktiv</span>{% endif %}
+      </td>
+      <td style="text-align:center">
+        {% if not u.licenses %}
+          <span style="color:#9499A2">N/A</span>
+        {% elif u.mfa is not defined or u.mfa is none %}
+          <span style="color:#9499A2">&mdash;</span>
+        {% elif u.mfa %}
+          <span class="badge s-ok">Ja</span>
+        {% else %}
+          <span class="badge s-err">Nej</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
 """
 
 ACRONIS_SECTION_TEMPLATE = """
@@ -465,12 +533,22 @@ def _render_unifi(data: dict, env: Environment) -> str:
 
 
 def _render_microsoft(data: dict, env: Environment) -> str:
+    mfa_total = data.get("mfa_total") or 0
+    mfa_registered = data.get("mfa_registered") or 0
+    mfa_pct = round(mfa_registered / mfa_total * 100) if mfa_total > 0 else 0
+
+    users = sorted(data.get("users") or [], key=lambda u: u.get("name", "").lower())
+
     return env.from_string(MICROSOFT_SECTION_TEMPLATE).render(
-        total_licenses=len(data.get("licenses") or []),
-        active_users=data.get("enabled_users") or data.get("total_users") or 0,
-        mfa_enabled_count=data.get("mfa_registered") or 0,
-        secure_score=data.get("secure_score"),
-        secure_score_max=data.get("secure_score_max"),
+        total_users=data.get("total_users") or 0,
+        enabled_users=data.get("enabled_users") or 0,
+        licenses=data.get("licenses") or [],
+        users=users,
+        mfa_total=mfa_total,
+        mfa_registered=mfa_registered,
+        mfa_pct=mfa_pct,
+        secure_score=round(data["secure_score"]) if data.get("secure_score") is not None else None,
+        secure_score_max=round(data["secure_score_max"]) if data.get("secure_score_max") is not None else None,
     )
 
 
