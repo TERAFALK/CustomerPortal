@@ -1254,7 +1254,7 @@ function renderMicrosoftData(data) {
   } else {
     licEl.innerHTML = licenses.map(l => {
       const pct = l.total > 0 ? Math.round(l.assigned / l.total * 100) : 0;
-      const barColor = pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--yellow,#f59e0b)' : 'var(--blue)';
+      const barColor = 'var(--blue)';
       // Göm om total är extremt stor (trial/viral med 10000 platser)
       const countText = l.total >= 9999 ? `${l.assigned} tilldelade` : `${l.assigned} av ${l.total} tilldelade`;
       const showBar = l.total < 9999;
