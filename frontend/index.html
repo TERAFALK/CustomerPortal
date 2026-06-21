@@ -376,9 +376,13 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
   /* Licenser i licenskortet → behåll rad-layout, ta bort min-width på baren */
   .ms-lic-row > div[style*="min-width"] { min-width:100px!important }
 
-  /* Chips → höger-justerade på mobil */
+  /* Licenschips → höger-justerade på mobil */
   .lic-chips { display:flex;flex-wrap:wrap;justify-content:flex-end;gap:2px }
-  .int-chips { display:flex;flex-wrap:wrap;justify-content:flex-end;gap:3px }
+
+  /* Integrationschips → täta, ingen etikett */
+  .int-chips { display:flex;flex-wrap:wrap;gap:4px }
+  #customers-tbody td[data-label="Integrationer"] { justify-content:flex-start }
+  #customers-tbody td[data-label="Integrationer"]:before { display:none }
 
   /* Kundlistan: varje rad klickbar som ett kort */
   #customers-tbody tr { cursor:pointer }
