@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.auth import current_user, require_admin
+from app.core.config import settings
 from app.core.integration_cache import get_cached, refresh_in_background, set_cached
 from app.core.security import encrypt
 from app.core.time_utils import now_stockholm
@@ -258,6 +259,23 @@ async def verify_credential(
         await db.commit()
 
     return {"status": "ok" if ok else "error", "detail": message}
+
+
+@router.get("/{customer_id}/integrations/microsoft/consent-url")
+async def microsoft_consent_url(
+    customer_id: str,
+    _: User = Depends(require_admin),
+):
+    """Genererar admin-consent URL för TERAFALK:s multi-tenant app."""
+    if not settings.MS_APP_CLIENT_ID or not settings.MS_APP_REDIRECT_URI:
+        raise HTTPException(400, "MS_APP_CLIENT_ID och MS_APP_REDIRECT_URI måste konfigureras i .env")
+    url = (
+        f"https://login.microsoftonline.com/common/adminconsent"
+        f"?client_id={settings.MS_APP_CLIENT_ID}"
+        f"&redirect_uri={settings.MS_APP_REDIRECT_URI}"
+        f"&state={customer_id}"
+    )
+    return {"url": url}
 
 
 @router.get("/{customer_id}/integrations/{integration_type}/live")

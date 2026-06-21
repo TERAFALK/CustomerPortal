@@ -12,11 +12,16 @@ class Settings(BaseSettings):
     ENCRYPTION_KEY: str = "dev-enc-key-byt-i-produktion-32b"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
 
-    # Microsoft Graph
+    # Microsoft Graph — TERAFALK:s avsändar-app (single-tenant, för e-post)
     GRAPH_TENANT_ID: str = ""
     GRAPH_CLIENT_ID: str = ""
     GRAPH_CLIENT_SECRET: str = ""
     GRAPH_SENDER: str = "noreply@terafalk.com"
+
+    # Microsoft 365 kundintegration — TERAFALK:s multi-tenant app
+    MS_APP_CLIENT_ID: str = ""
+    MS_APP_CLIENT_SECRET: str = ""
+    MS_APP_REDIRECT_URI: str = ""  # t.ex. https://insight.terafalk.com/api/auth/microsoft/callback
 
     # Första admin
     FIRST_ADMIN_EMAIL: str = "admin@terafalk.com"

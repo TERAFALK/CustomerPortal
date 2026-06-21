@@ -1363,11 +1363,6 @@ function renderUnifiData(data) {
 
 const INTEGRATION_DEFS = [
   { key: 'unifi', name: 'UniFi', icon: 'ti-router', fields: [{ id: 'api_key', label: 'API-nyckel (kundens Fabric)', type: 'password', placeholder: 'Från kundens Fabric → Settings → API Keys' }] },
-  { key: 'microsoft', name: 'Microsoft 365', icon: 'ti-brand-windows', fields: [
-      { id: 'tenant_id', label: 'Tenant ID', type: 'text', placeholder: 'Kundens Microsoft 365 Tenant ID' },
-      { id: 'client_id', label: 'Client ID', type: 'text', placeholder: 'App Registration Client ID' },
-      { id: 'client_secret', label: 'Client Secret', type: 'password', placeholder: 'Client secret' },
-  ]},
   { key: 'acronis', name: 'Acronis Backup', icon: 'ti-shield', fields: [{ id: 'api_key', label: 'API-nyckel', type: 'password', placeholder: 'Acronis API-nyckel' }] },
 ];
 
@@ -1382,7 +1377,7 @@ async function loadIntegrationsView(customerId) {
     const statusByKey = {};
     customer.integrations.forEach(i => statusByKey[i.key] = i);
 
-    container.innerHTML = INTEGRATION_DEFS.map(def => {
+    const standardCards = INTEGRATION_DEFS.map(def => {
       const status = statusByKey[def.key] || { configured: false, verified: false };
       const badge = status.verified
         ? '<span class="b b-ok">Verifierad</span>'
@@ -1404,9 +1399,43 @@ async function loadIntegrationsView(customerId) {
           </div>
         </div>`;
     }).join('');
+
+    const msStatus = statusByKey['microsoft'] || { configured: false, verified: false };
+    const msBadge = msStatus.verified
+      ? '<span class="b b-ok">Kopplad</span>'
+      : '<span class="b b-muted">Ej kopplad</span>';
+    const msCard = `
+      <div class="card">
+        <div class="ch"><i class="ti ti-brand-windows" style="color:${msStatus.verified ? 'var(--blue)' : 'var(--muted)'}"></i><span class="cht" style="margin-left:6px;flex:1">Microsoft 365</span>${msBadge}</div>
+        <div class="cb">
+          ${msStatus.verified
+            ? `<div class="alert al-ok" style="margin-bottom:12px"><i class="ti ti-circle-check"></i><span>Kunden har gett admin consent. Microsoft 365-data hämtas automatiskt.</span></div>`
+            : `<div class="alert al-info" style="margin-bottom:12px"><i class="ti ti-info-circle"></i><span>Kunden behöver godkänna åtkomst en gång. Klicka på knappen nedan — en ny flik öppnas där kundens Global Admin loggar in och godkänner.</span></div>`
+          }
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-p btn-sm" onclick="openMicrosoftConsent('${customerId}')">
+              <i class="ti ti-external-link"></i> ${msStatus.verified ? 'Koppla om' : 'Koppla Microsoft 365'}
+            </button>
+            ${msStatus.verified ? `<button class="btn btn-danger btn-sm" onclick="removeIntegration('${customerId}','microsoft')"><i class="ti ti-trash"></i> Ta bort</button>` : ''}
+          </div>
+          <div class="fh" style="margin-top:10px">Kräver en multi-tenant App Registration i TERAFALK:s Azure AD med admin consent-behörigheter. Inget per-kund secret — kunden behöver bara godkänna en gång.</div>
+        </div>
+      </div>`;
+
+    container.innerHTML = msCard + standardCards;
   } catch (e) {
     if (_navGen !== gen) return;
     container.innerHTML = `<div class="alert al-e"><i class="ti ti-alert-circle"></i><span>${e.message}</span></div>`;
+  }
+}
+
+async function openMicrosoftConsent(customerId) {
+  try {
+    const { url } = await api(`/api/customers/${customerId}/integrations/microsoft/consent-url`);
+    window.open(url, '_blank', 'noopener');
+    t('Consent-länk öppnad i ny flik — ladda om sidan när kunden har godkänt');
+  } catch (e) {
+    errToast('Kunde inte generera consent-länk', e);
   }
 }
 
