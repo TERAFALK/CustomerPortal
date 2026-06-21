@@ -24,11 +24,34 @@
 body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;-webkit-font-smoothing:antialiased}
 
 /* ── Login ── */
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg)}
-.login-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:40px 36px;width:370px;box-shadow:var(--shadow-l)}
-.login-logo{margin-bottom:28px;display:flex;justify-content:center}
-.login-title{font-size:17px;font-weight:700;margin-bottom:4px;text-align:center}
-.login-sub{font-size:12px;color:var(--muted);text-align:center;margin-bottom:28px}
+.login-wrap{min-height:100vh;display:flex;background:#fff}
+.login-panel-left{
+  flex:0 0 480px;background:#0047A3;
+  display:flex;flex-direction:column;justify-content:space-between;
+  padding:52px 56px;position:relative;overflow:hidden;
+}
+.login-panel-left::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 10% 80%,rgba(75,161,231,0.35) 0%,transparent 60%),
+             radial-gradient(ellipse at 90% 10%,rgba(255,255,255,0.07) 0%,transparent 50%);
+}
+.login-panel-left>*{position:relative;z-index:1}
+.login-brand{display:flex;flex-direction:column;gap:10px}
+.login-brand-sub{font-size:11px;font-weight:600;color:rgba(255,255,255,0.55);letter-spacing:0.12em;text-transform:uppercase;margin-top:2px}
+.login-tagline{margin-top:auto;color:#fff}
+.login-tagline h2{font-size:26px;font-weight:700;line-height:1.25;letter-spacing:-0.02em;margin-bottom:12px}
+.login-tagline p{font-size:13px;color:rgba(255,255,255,0.65);line-height:1.6;max-width:300px}
+.login-dots{display:flex;gap:8px;margin-top:40px}
+.login-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.25)}
+.login-dot.active{background:#fff;width:20px;border-radius:4px}
+.login-panel-right{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  background:#F6F7F9;
+}
+.login-box{background:#fff;border:1px solid var(--border);border-radius:14px;padding:44px 40px;width:380px;box-shadow:var(--shadow-l)}
+.login-logo{margin-bottom:32px;display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.login-title{font-size:20px;font-weight:700;margin-bottom:4px;text-align:left;color:var(--text)}
+.login-sub{font-size:13px;color:var(--muted);text-align:left;margin-bottom:28px}
 
 /* ── Layout ── */
 .app{display:flex;min-height:100vh}
@@ -267,28 +290,60 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
 
 <!-- ═══ LOGIN ═══ -->
 <div id="login-screen" class="login-wrap">
-  <div class="login-box">
-    <div class="login-logo" style="flex-direction:column;align-items:center;gap:6px">
-      <svg viewBox="0 0 695.39 84.24" width="180" height="22" xmlns="http://www.w3.org/2000/svg">
-        <path fill="#141414" d="M236.18,455.57v15H201.74v69h-15v-69H152.3v-15Z" transform="translate(-152.3 -455.45)"/>
-        <path fill="#141414" d="M263.3,478.13v7.8h54v15h-54v15.84a7.74,7.74,0,0,0,7.68,7.68H332.3v15H271a22.63,22.63,0,0,1-22.56-22.67V478.13A22.64,22.64,0,0,1,271,455.45H332.3v15H271A7.73,7.73,0,0,0,263.3,478.13Z" transform="translate(-152.3 -455.45)"/>
-        <path fill="#141414" d="M412.1,524.69l7.68,15H403l-7.68-15-8-15.72-.36-.72a14.87,14.87,0,0,0-12.72-7.2h-15v38.63h-15v-84h53a22.53,22.53,0,0,1,22.56,22.56,22.75,22.75,0,0,1-13.2,20.64,20,20,0,0,1-6.48,1.8Zm-14.88-38.64a7,7,0,0,0,3.12-.72,7.62,7.62,0,0,0,4.56-7,7.92,7.92,0,0,0-2.28-5.52,7.56,7.56,0,0,0-5.4-2.16h-38v15.48Z" transform="translate(-152.3 -455.45)"/>
-        <path fill="#141414" d="M512.78,539.44H496l-7.68-15-18.36-36-18.36,36-7.68,15H427.1l7.68-15,35.16-69,35.16,69Z" transform="translate(-152.3 -455.45)"/>
-        <path fill="#141414" d="M604.1,455.45v15H542.78a7.73,7.73,0,0,0-7.68,7.68v7.8h54v15H535v38.51H520.1V478.13a22.64,22.64,0,0,1,22.56-22.68Z" transform="translate(-152.3 -455.45)"/>
-        <path fill="#141414" d="M678.38,539.44h-16.8l-7.68-15-18.36-36-18.36,36-7.68,15H592.7l7.68-15,35.16-69,35.16,69Z" transform="translate(-152.3 -455.45)"/>
-        <path fill="#141414" d="M751.7,524.57v15H709.1a26.09,26.09,0,0,1-11.76-2.76,26.59,26.59,0,0,1-12.12-12.23,26.12,26.12,0,0,1-2.76-11.76V455.57h15v58.68a12,12,0,0,0,10.2,10.2Z" transform="translate(-152.3 -455.45)"/>
-        <path fill="#141414" d="M811,489.17l36.35,50.27H828.85l-29-40.07-21.24,19.32v20.75h-15v-84h15v43l12.36-11.28,11.16-10.2,23.39-21.48h22.2Z" transform="translate(-152.3 -455.45)"/>
+
+  <!-- Vänster panel: varumärke -->
+  <div class="login-panel-left">
+    <div class="login-brand">
+      <svg viewBox="0 0 695.39 84.24" width="160" height="20" xmlns="http://www.w3.org/2000/svg">
+        <path fill="#fff" d="M236.18,455.57v15H201.74v69h-15v-69H152.3v-15Z" transform="translate(-152.3 -455.45)"/>
+        <path fill="#fff" d="M263.3,478.13v7.8h54v15h-54v15.84a7.74,7.74,0,0,0,7.68,7.68H332.3v15H271a22.63,22.63,0,0,1-22.56-22.67V478.13A22.64,22.64,0,0,1,271,455.45H332.3v15H271A7.73,7.73,0,0,0,263.3,478.13Z" transform="translate(-152.3 -455.45)"/>
+        <path fill="#fff" d="M412.1,524.69l7.68,15H403l-7.68-15-8-15.72-.36-.72a14.87,14.87,0,0,0-12.72-7.2h-15v38.63h-15v-84h53a22.53,22.53,0,0,1,22.56,22.56,22.75,22.75,0,0,1-13.2,20.64,20,20,0,0,1-6.48,1.8Zm-14.88-38.64a7,7,0,0,0,3.12-.72,7.62,7.62,0,0,0,4.56-7,7.92,7.92,0,0,0-2.28-5.52,7.56,7.56,0,0,0-5.4-2.16h-38v15.48Z" transform="translate(-152.3 -455.45)"/>
+        <path fill="#fff" d="M512.78,539.44H496l-7.68-15-18.36-36-18.36,36-7.68,15H427.1l7.68-15,35.16-69,35.16,69Z" transform="translate(-152.3 -455.45)"/>
+        <path fill="#fff" d="M604.1,455.45v15H542.78a7.73,7.73,0,0,0-7.68,7.68v7.8h54v15H535v38.51H520.1V478.13a22.64,22.64,0,0,1,22.56-22.68Z" transform="translate(-152.3 -455.45)"/>
+        <path fill="#fff" d="M678.38,539.44h-16.8l-7.68-15-18.36-36-18.36,36-7.68,15H592.7l7.68-15,35.16-69,35.16,69Z" transform="translate(-152.3 -455.45)"/>
+        <path fill="#fff" d="M751.7,524.57v15H709.1a26.09,26.09,0,0,1-11.76-2.76,26.59,26.59,0,0,1-12.12-12.23,26.12,26.12,0,0,1-2.76-11.76V455.57h15v58.68a12,12,0,0,0,10.2,10.2Z" transform="translate(-152.3 -455.45)"/>
+        <path fill="#fff" d="M811,489.17l36.35,50.27H828.85l-29-40.07-21.24,19.32v20.75h-15v-84h15v43l12.36-11.28,11.16-10.2,23.39-21.48h22.2Z" transform="translate(-152.3 -455.45)"/>
       </svg>
-      <div style="font-family:'Exo 2',sans-serif;font-size:12px;font-weight:500;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase">Insight</div>
+      <div class="login-brand-sub">Insight</div>
     </div>
-    <div class="login-title">Logga in</div>
-    <div class="login-sub"></div>
-    <div class="fr"><label class="fl">E-postadress</label><input class="fi" id="l-email" type="email" value="admin@terafalk.com" autocomplete="username"></div>
-    <div class="fr"><label class="fl">Lösenord</label><input class="fi" id="l-pw" type="password" value="changeme" autocomplete="current-password"></div>
-    <div id="l-err" style="font-size:12px;color:#BE123C;margin-bottom:10px;display:none">Fel e-post eller lösenord</div>
-    <button class="btn btn-p" style="width:100%;justify-content:center" onclick="doLogin()"><i class="ti ti-login"></i> Logga in</button>
-    <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:14px">Kontakta support@terafalk.com vid problem</div>
+    <div class="login-tagline">
+      <h2>Ditt nätverk.<br>Din kontroll.</h2>
+      <p>Realtidsövervakning, månadsrapporter och samlad IT-status — allt på ett ställe.</p>
+      <div class="login-dots">
+        <div class="login-dot active"></div>
+        <div class="login-dot"></div>
+        <div class="login-dot"></div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.35)">© 2026 TERAFALK AB</div>
   </div>
+
+  <!-- Höger panel: formulär -->
+  <div class="login-panel-right">
+    <div class="login-box">
+      <div class="login-logo">
+        <svg viewBox="0 0 695.39 84.24" width="140" height="17" xmlns="http://www.w3.org/2000/svg">
+          <path fill="#141414" d="M236.18,455.57v15H201.74v69h-15v-69H152.3v-15Z" transform="translate(-152.3 -455.45)"/>
+          <path fill="#141414" d="M263.3,478.13v7.8h54v15h-54v15.84a7.74,7.74,0,0,0,7.68,7.68H332.3v15H271a22.63,22.63,0,0,1-22.56-22.67V478.13A22.64,22.64,0,0,1,271,455.45H332.3v15H271A7.73,7.73,0,0,0,263.3,478.13Z" transform="translate(-152.3 -455.45)"/>
+          <path fill="#141414" d="M412.1,524.69l7.68,15H403l-7.68-15-8-15.72-.36-.72a14.87,14.87,0,0,0-12.72-7.2h-15v38.63h-15v-84h53a22.53,22.53,0,0,1,22.56,22.56,22.75,22.75,0,0,1-13.2,20.64,20,20,0,0,1-6.48,1.8Zm-14.88-38.64a7,7,0,0,0,3.12-.72,7.62,7.62,0,0,0,4.56-7,7.92,7.92,0,0,0-2.28-5.52,7.56,7.56,0,0,0-5.4-2.16h-38v15.48Z" transform="translate(-152.3 -455.45)"/>
+          <path fill="#141414" d="M512.78,539.44H496l-7.68-15-18.36-36-18.36,36-7.68,15H427.1l7.68-15,35.16-69,35.16,69Z" transform="translate(-152.3 -455.45)"/>
+          <path fill="#141414" d="M604.1,455.45v15H542.78a7.73,7.73,0,0,0-7.68,7.68v7.8h54v15H535v38.51H520.1V478.13a22.64,22.64,0,0,1,22.56-22.68Z" transform="translate(-152.3 -455.45)"/>
+          <path fill="#141414" d="M678.38,539.44h-16.8l-7.68-15-18.36-36-18.36,36-7.68,15H592.7l7.68-15,35.16-69,35.16,69Z" transform="translate(-152.3 -455.45)"/>
+          <path fill="#141414" d="M751.7,524.57v15H709.1a26.09,26.09,0,0,1-11.76-2.76,26.59,26.59,0,0,1-12.12-12.23,26.12,26.12,0,0,1-2.76-11.76V455.57h15v58.68a12,12,0,0,0,10.2,10.2Z" transform="translate(-152.3 -455.45)"/>
+          <path fill="#141414" d="M811,489.17l36.35,50.27H828.85l-29-40.07-21.24,19.32v20.75h-15v-84h15v43l12.36-11.28,11.16-10.2,23.39-21.48h22.2Z" transform="translate(-152.3 -455.45)"/>
+        </svg>
+        <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase">Insight</div>
+      </div>
+      <div class="login-title">Välkommen tillbaka</div>
+      <div class="login-sub">Logga in med dina uppgifter för att fortsätta</div>
+      <div class="fr"><label class="fl">E-postadress</label><input class="fi" id="l-email" type="email" placeholder="din@epost.se" autocomplete="username"></div>
+      <div class="fr"><label class="fl">Lösenord</label><input class="fi" id="l-pw" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+      <div id="l-err" style="font-size:12px;color:#BE123C;margin-bottom:10px;display:none">Fel e-post eller lösenord</div>
+      <button class="btn btn-p" style="width:100%;justify-content:center;height:42px;font-size:14px" onclick="doLogin()">Logga in</button>
+      <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:20px">Problem att logga in? <a href="mailto:support@terafalk.com" style="color:var(--blue);text-decoration:none">Kontakta support</a></div>
+    </div>
+  </div>
+
 </div>
 
 <!-- ═══ APP ═══ -->
