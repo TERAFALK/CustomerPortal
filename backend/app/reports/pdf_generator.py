@@ -87,14 +87,22 @@ body {
 
 /* ── Sektionsrubrik ── */
 .section-title {
-  font-size: 9px;
+  font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.13em;
-  color: #0047A3;
-  margin-bottom: 14px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid #E4E8EE;
+  letter-spacing: 0.08em;
+  color: #fff;
+  background: #0047A3;
+  padding: 10px 16px;
+  border-radius: 4px;
+  margin-bottom: 18px;
+  margin-top: 8px;
+  break-before: auto;
+  break-after: avoid;
+}
+.section-break {
+  break-before: page;
+  height: 0;
 }
 
 /* ── Mellanrubrik ── */
@@ -323,6 +331,7 @@ UNIFI_SECTION_TEMPLATE = """
 """
 
 MICROSOFT_SECTION_TEMPLATE = """
+<div class="section-break"></div>
 <div class="section-title">Microsoft 365</div>
 <div class="metrics">
   <div class="metric">
@@ -490,6 +499,7 @@ MICROSOFT_SECTION_TEMPLATE = """
 """
 
 ACRONIS_SECTION_TEMPLATE = """
+<div class="section-break"></div>
 <div class="section-title">Acronis Backup</div>
 <table>
   <thead>
