@@ -376,13 +376,7 @@ MICROSOFT_SECTION_TEMPLATE = """
 <div class="sub-label" style="margin-top:14px">Användare</div>
 <table>
   <thead>
-    <tr>
-      <th>Namn</th>
-      <th>E-post</th>
-      <th>Licenser</th>
-      <th style="text-align:center">Status</th>
-      <th style="text-align:center">MFA</th>
-    </tr>
+    <tr><th>Namn</th><th>E-post</th><th>Licenser</th><th style="text-align:center">Status</th><th style="text-align:center">MFA</th></tr>
   </thead>
   <tbody>
     {% for u in users %}
@@ -394,16 +388,101 @@ MICROSOFT_SECTION_TEMPLATE = """
         {% if u.enabled %}<span class="badge s-ok">Aktiv</span>{% else %}<span class="badge" style="background:#F3F5F8;color:#5C616B">Inaktiv</span>{% endif %}
       </td>
       <td style="text-align:center">
-        {% if not u.licenses %}
-          <span style="color:#9499A2">N/A</span>
-        {% elif u.mfa is not defined or u.mfa is none %}
-          <span style="color:#9499A2">&mdash;</span>
-        {% elif u.mfa %}
-          <span class="badge s-ok">Ja</span>
-        {% else %}
-          <span class="badge s-err">Nej</span>
-        {% endif %}
+        {% if not u.licenses %}<span style="color:#9499A2">N/A</span>
+        {% elif u.mfa is not defined or u.mfa is none %}<span style="color:#9499A2">&mdash;</span>
+        {% elif u.mfa %}<span class="badge s-ok">Ja</span>
+        {% else %}<span class="badge s-err">Nej</span>{% endif %}
       </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if admin_roles %}
+<div class="sub-label" style="margin-top:14px">Admin-roller</div>
+<table>
+  <thead><tr><th>Roll</th><th>Medlemmar</th><th style="text-align:center">Risknivå</th></tr></thead>
+  <tbody>
+    {% for r in admin_roles %}
+    <tr>
+      <td><span class="dev-name">{{ r.role }}</span></td>
+      <td style="font-size:10px;color:#5C616B">{{ r.members | join(', ') }}</td>
+      <td style="text-align:center">
+        {% if r.high_risk %}<span class="badge s-err">Hög</span>{% else %}<span class="badge" style="background:#F3F5F8;color:#5C616B">Normal</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if inactive_licensed_users %}
+<div class="sub-label" style="margin-top:14px">Inaktiva licensierade konton ({{ inactive_licensed_users | length }} st)</div>
+<table>
+  <thead><tr><th>Namn</th><th>E-post</th><th>Licenser</th><th style="text-align:right">Inaktiv sedan</th></tr></thead>
+  <tbody>
+    {% for u in inactive_licensed_users %}
+    <tr>
+      <td><span class="dev-name">{{ u.name }}</span></td>
+      <td style="color:#5C616B;font-size:10px">{{ u.email }}</td>
+      <td style="font-size:10px;color:#5C616B">{{ u.licenses | join(', ') }}</td>
+      <td style="text-align:right">{% if u.never_signed_in %}<span class="badge s-warn">Aldrig inloggad</span>{% else %}{{ u.last_signin_days }} dagar{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if onedrive_users %}
+<div class="sub-label" style="margin-top:14px">OneDrive-användning &mdash; totalt {{ onedrive_total_gb }} GB</div>
+<table>
+  <thead><tr><th>Användare</th><th style="text-align:right">Använt (GB)</th><th style="text-align:right">Senast aktiv</th></tr></thead>
+  <tbody>
+    {% for u in onedrive_users %}
+    <tr>
+      <td><span class="dev-name">{{ u.name }}</span><span style="color:#9499A2;font-size:10px;margin-left:6px">{{ u.email }}</span></td>
+      <td style="text-align:right;font-weight:600">{{ u.used_gb }}</td>
+      <td style="text-align:right;color:#5C616B;font-size:10px">{{ u.last_activity or '&mdash;' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if sharepoint_sites %}
+<div class="sub-label" style="margin-top:14px">SharePoint-sajter &mdash; totalt {{ sharepoint_total_gb }} GB</div>
+<table>
+  <thead><tr><th>Sajt</th><th>Ägare</th><th style="text-align:right">Använt (GB)</th><th style="text-align:right">Senast aktiv</th></tr></thead>
+  <tbody>
+    {% for s in sharepoint_sites %}
+    <tr>
+      <td><span class="dev-name">{{ s.name }}</span></td>
+      <td style="color:#5C616B;font-size:10px">{{ s.owner }}</td>
+      <td style="text-align:right;font-weight:600">{{ s.used_gb }}</td>
+      <td style="text-align:right;color:#5C616B;font-size:10px">{{ s.last_activity or '&mdash;' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if intune_devices %}
+<div class="sub-label" style="margin-top:14px">Intune-enheter ({{ intune_devices | length }} st)</div>
+<table>
+  <thead><tr><th>Enhet</th><th>Användare</th><th>OS</th><th style="text-align:center">Kompatibilitet</th><th style="text-align:right">Synkad</th></tr></thead>
+  <tbody>
+    {% for d in intune_devices %}
+    <tr>
+      <td><span class="dev-name">{{ d.name }}</span></td>
+      <td style="color:#5C616B;font-size:10px">{{ d.user }}</td>
+      <td style="font-size:10px;color:#5C616B">{{ d.os }} {{ d.os_version }}</td>
+      <td style="text-align:center">
+        {% if d.compliance_key == 'compliant' %}<span class="badge s-ok">Kompatibel</span>
+        {% elif d.compliance_key == 'noncompliant' %}<span class="badge s-err">Ej kompatibel</span>
+        {% else %}<span class="badge" style="background:#F3F5F8;color:#5C616B">{{ d.compliance }}</span>{% endif %}
+      </td>
+      <td style="text-align:right;color:#5C616B;font-size:10px">{% if d.last_sync_days is not none %}{{ d.last_sync_days }} dagar sedan{% else %}&mdash;{% endif %}</td>
     </tr>
     {% endfor %}
   </tbody>
@@ -550,6 +629,13 @@ def _render_microsoft(data: dict, env: Environment) -> str:
         mfa_pct=mfa_pct,
         secure_score=round(data["secure_score"]) if data.get("secure_score") is not None else None,
         secure_score_max=round(data["secure_score_max"]) if data.get("secure_score_max") is not None else None,
+        admin_roles=data.get("admin_roles") or [],
+        inactive_licensed_users=data.get("inactive_licensed_users") or [],
+        onedrive_users=data.get("onedrive_users") or [],
+        onedrive_total_gb=data.get("onedrive_total_gb") or 0,
+        sharepoint_sites=data.get("sharepoint_sites") or [],
+        sharepoint_total_gb=data.get("sharepoint_total_gb") or 0,
+        intune_devices=data.get("intune_devices") or [],
     )
 
 

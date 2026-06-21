@@ -1,9 +1,12 @@
 """
 Microsoft Graph API-klient med client credentials flow.
-Hämtar licensöversikt, MFA-registreringsstatus och Secure Score för en kunds tenant.
 """
 
+import csv
+import io
 import logging
+from datetime import datetime, timezone
+
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -46,11 +49,16 @@ class GraphClient:
 
     async def fetch_all(self) -> dict:
         async with httpx.AsyncClient(timeout=30) as client:
-            licenses_raw, users_raw, mfa_raw, score_raw = await _gather(
+            (licenses_raw, users_raw, mfa_raw, score_raw,
+             roles_raw, od_csv, sp_csv, intune_raw) = await _gather(
                 self._fetch_licenses(client),
                 self._fetch_users(client),
                 self._fetch_mfa(client),
                 self._fetch_secure_score(client),
+                self._fetch_admin_roles(client),
+                self._fetch_onedrive_usage(client),
+                self._fetch_sharepoint_usage(client),
+                self._fetch_intune_devices(client),
             )
 
         # Licenser — bygg skuId→{name,sku} karta för användarmappning
@@ -141,6 +149,121 @@ class GraphClient:
             secure_score = sc.get("currentScore")
             secure_score_max = sc.get("maxScore")
 
+        # Admin-roller
+        _HIGH_RISK_ROLES = {
+            "Global Administrator", "Privileged Role Administrator",
+            "Privileged Authentication Administrator", "Security Administrator",
+        }
+        role_map: dict[str, list[str]] = {}
+        for assignment in (roles_raw.get("value") or []):
+            rd = assignment.get("roleDefinition") or {}
+            role_name = rd.get("displayName", "")
+            principal = assignment.get("principal") or {}
+            member_name = principal.get("displayName") or principal.get("userPrincipalName", "")
+            if role_name and member_name:
+                role_map.setdefault(role_name, []).append(member_name)
+        admin_roles = [
+            {"role": role, "members": members, "high_risk": role in _HIGH_RISK_ROLES}
+            for role, members in sorted(role_map.items())
+            if members
+        ]
+
+        # Inaktiva licensierade användare (signInActivity, kräver AzureAD P1+)
+        inactive_licensed: list[dict] = []
+        now_utc = datetime.now(timezone.utc)
+        for u in user_list:
+            if not u["enabled"] or not u["licenses"]:
+                continue
+            sign_in = next(
+                (raw_u.get("signInActivity") for raw_u in (users_raw.get("value") or [])
+                 if (raw_u.get("mail") or raw_u.get("userPrincipalName", "")).lower() == u["email"].lower()),
+                None
+            )
+            if sign_in is None:
+                continue  # signInActivity inte tillgänglig för denna tenant
+            last_dt_str = sign_in.get("lastSignInDateTime") if sign_in else None
+            if last_dt_str:
+                try:
+                    last_dt = datetime.fromisoformat(last_dt_str.replace("Z", "+00:00"))
+                    days = (now_utc - last_dt).days
+                except Exception:
+                    days = None
+            else:
+                days = None
+            if days is None or days > 30:
+                inactive_licensed.append({
+                    "name": u["name"],
+                    "email": u["email"],
+                    "licenses": u["licenses"],
+                    "last_signin_days": days,
+                    "never_signed_in": last_dt_str is None,
+                })
+
+        # OneDrive-användning
+        onedrive_users = []
+        onedrive_total_gb = 0.0
+        if od_csv:
+            for row in _parse_csv(od_csv):
+                if row.get("Is Deleted", "").lower() == "true":
+                    continue
+                used = _bytes_to_gb(row.get("Storage Used (Byte)", 0))
+                onedrive_total_gb += used
+                onedrive_users.append({
+                    "name": row.get("Owner Display Name", "") or row.get("User Principal Name", ""),
+                    "email": row.get("User Principal Name", ""),
+                    "used_gb": used,
+                    "last_activity": row.get("Last Activity Date", "") or None,
+                })
+            onedrive_users.sort(key=lambda x: x["used_gb"], reverse=True)
+            onedrive_total_gb = round(onedrive_total_gb, 2)
+
+        # SharePoint-sajter
+        sharepoint_sites = []
+        sharepoint_total_gb = 0.0
+        if sp_csv:
+            for row in _parse_csv(sp_csv):
+                if row.get("Is Deleted", "").lower() == "true":
+                    continue
+                used = _bytes_to_gb(row.get("Storage Used (Byte)", 0))
+                sharepoint_total_gb += used
+                url = row.get("Site URL", "")
+                name = url.rstrip("/").split("/")[-1] or url
+                sharepoint_sites.append({
+                    "name": name,
+                    "url": url,
+                    "owner": row.get("Owner Display Name", ""),
+                    "used_gb": used,
+                    "last_activity": row.get("Last Activity Date", "") or None,
+                })
+            sharepoint_sites.sort(key=lambda x: x["used_gb"], reverse=True)
+            sharepoint_total_gb = round(sharepoint_total_gb, 2)
+
+        # Intune-enheter
+        _COMPLIANCE_LABEL = {
+            "compliant": "Kompatibel", "noncompliant": "Ej kompatibel",
+            "unknown": "Okänd", "notApplicable": "Ej tillämplig",
+            "inGracePeriod": "I respitperiod", "configManager": "Config Manager",
+        }
+        intune_devices = []
+        for d in (intune_raw.get("value") or []):
+            last_sync = d.get("lastSyncDateTime", "")
+            try:
+                sync_dt = datetime.fromisoformat(last_sync.replace("Z", "+00:00"))
+                sync_days = (now_utc - sync_dt).days
+            except Exception:
+                sync_days = None
+            compliance = d.get("complianceState", "unknown")
+            intune_devices.append({
+                "name": d.get("deviceName", ""),
+                "user": d.get("userDisplayName", "") or d.get("userPrincipalName", ""),
+                "os": d.get("operatingSystem", ""),
+                "os_version": d.get("osVersion", ""),
+                "compliance": _COMPLIANCE_LABEL.get(compliance, compliance),
+                "compliance_key": compliance,
+                "last_sync_days": sync_days,
+            })
+        intune_devices.sort(key=lambda x: (x["compliance_key"] != "compliant", x["name"]))
+
         return {
             "integration": "microsoft",
             "available": True,
@@ -153,17 +276,77 @@ class GraphClient:
             "mfa_available": mfa_total > 0,
             "secure_score": secure_score,
             "secure_score_max": secure_score_max,
+            "admin_roles": admin_roles,
+            "inactive_licensed_users": inactive_licensed,
+            "onedrive_users": onedrive_users,
+            "onedrive_total_gb": onedrive_total_gb,
+            "sharepoint_sites": sharepoint_sites,
+            "sharepoint_total_gb": sharepoint_total_gb,
+            "intune_devices": intune_devices,
         }
 
     async def _fetch_licenses(self, client):
         return await self._get(client, "/subscribedSkus")
 
     async def _fetch_users(self, client):
-        return await self._get(client, "/users", params={
-            "$count": "true",
-            "$select": "id,displayName,userPrincipalName,mail,jobTitle,accountEnabled,assignedLicenses",
-            "$top": "999",
-        })
+        try:
+            return await self._get(client, "/users", params={
+                "$count": "true",
+                "$select": "id,displayName,userPrincipalName,mail,jobTitle,accountEnabled,assignedLicenses,signInActivity",
+                "$top": "999",
+            })
+        except Exception:
+            return await self._get(client, "/users", params={
+                "$count": "true",
+                "$select": "id,displayName,userPrincipalName,mail,jobTitle,accountEnabled,assignedLicenses",
+                "$top": "999",
+            })
+
+    async def _fetch_admin_roles(self, client):
+        try:
+            return await self._get(client, "/roleManagement/directory/roleAssignments", params={
+                "$expand": "principal($select=displayName,userPrincipalName,id),roleDefinition($select=displayName,isBuiltIn)",
+                "$top": "200",
+            })
+        except Exception as e:
+            logger.warning("Admin-roller ej tillgängliga (kräver RoleManagement.Read.Directory): %s", e)
+            return {"value": []}
+
+    async def _fetch_onedrive_usage(self, client):
+        try:
+            token = await self._get_token(client)
+            r = await client.get(
+                f"{GRAPH_BASE}/reports/getOneDriveUsageAccountDetail(period='D30')",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            r.raise_for_status()
+            return r.text
+        except Exception as e:
+            logger.warning("OneDrive-rapport ej tillgänglig: %s", e)
+            return ""
+
+    async def _fetch_sharepoint_usage(self, client):
+        try:
+            token = await self._get_token(client)
+            r = await client.get(
+                f"{GRAPH_BASE}/reports/getSharePointSiteUsageDetail(period='D30')",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            r.raise_for_status()
+            return r.text
+        except Exception as e:
+            logger.warning("SharePoint-rapport ej tillgänglig: %s", e)
+            return ""
+
+    async def _fetch_intune_devices(self, client):
+        try:
+            return await self._get(client, "/deviceManagement/managedDevices", params={
+                "$select": "deviceName,userDisplayName,userPrincipalName,operatingSystem,osVersion,complianceState,lastSyncDateTime,managementState",
+                "$top": "999",
+            })
+        except Exception as e:
+            logger.warning("Intune-enheter ej tillgängliga (kräver DeviceManagementManagedDevices.Read.All): %s", e)
+            return {"value": []}
 
     async def _fetch_mfa(self, client):
         # Försök 1: v1.0 (kräver UserAuthenticationMethod.Read.All)
@@ -204,6 +387,18 @@ class GraphClient:
         except Exception as e:
             logger.warning("Secure Score ej tillgänglig: %s", e)
             return {"value": []}
+
+
+def _parse_csv(text: str) -> list[dict]:
+    text = text.lstrip('﻿')
+    return list(csv.DictReader(io.StringIO(text)))
+
+
+def _bytes_to_gb(value) -> float:
+    try:
+        return round(int(value) / 1_073_741_824, 2)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 async def _gather(*coros):

@@ -420,6 +420,51 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
             </table>
           </div>
         </div>
+        <div class="card" style="margin-top:13px" id="cd-ms-roles-card" style="display:none">
+          <div class="ch"><span class="cht">Admin-roller</span><span class="tag tag-m" id="cd-ms-roles-tag"></span></div>
+          <div class="cb0">
+            <table class="tbl">
+              <thead><tr><th>Roll</th><th>Medlemmar</th><th style="text-align:center">Risknivå</th></tr></thead>
+              <tbody id="cd-ms-roles-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card" style="margin-top:13px" id="cd-ms-inactive-card" style="display:none">
+          <div class="ch"><span class="cht">Inaktiva licensierade konton</span><span class="tag tag-m" id="cd-ms-inactive-tag"></span></div>
+          <div class="cb0">
+            <table class="tbl">
+              <thead><tr><th>Namn</th><th>E-post</th><th>Licenser</th><th style="text-align:right">Inaktiv sedan</th></tr></thead>
+              <tbody id="cd-ms-inactive-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card" style="margin-top:13px" id="cd-ms-onedrive-card" style="display:none">
+          <div class="ch"><span class="cht">OneDrive-användning</span><span id="cd-ms-onedrive-total" style="font-size:12px;color:var(--sub);margin-left:auto"></span></div>
+          <div class="cb0">
+            <table class="tbl">
+              <thead><tr><th>Användare</th><th>E-post</th><th style="text-align:right">Använt (GB)</th><th style="text-align:right">Senast aktiv</th></tr></thead>
+              <tbody id="cd-ms-onedrive-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card" style="margin-top:13px" id="cd-ms-sharepoint-card" style="display:none">
+          <div class="ch"><span class="cht">SharePoint-sajter</span><span id="cd-ms-sharepoint-total" style="font-size:12px;color:var(--sub);margin-left:auto"></span></div>
+          <div class="cb0">
+            <table class="tbl">
+              <thead><tr><th>Sajt</th><th>Ägare</th><th style="text-align:right">Använt (GB)</th><th style="text-align:right">Senast aktiv</th></tr></thead>
+              <tbody id="cd-ms-sharepoint-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card" style="margin-top:13px" id="cd-ms-intune-card" style="display:none">
+          <div class="ch"><span class="cht">Intune-enheter</span><span class="tag tag-m" id="cd-ms-intune-tag"></span></div>
+          <div class="cb0">
+            <table class="tbl">
+              <thead><tr><th>Enhet</th><th>Användare</th><th>OS</th><th style="text-align:center">Kompatibilitet</th><th style="text-align:right">Synkad</th></tr></thead>
+              <tbody id="cd-ms-intune-tbody"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <div id="cd-unifi-section" style="display:none">
@@ -1317,6 +1362,81 @@ function renderMicrosoftData(data) {
         </tr>`;
       }).join('');
   }
+
+  // Admin-roller
+  const roles = data.admin_roles || [];
+  const rolesCard = document.getElementById('cd-ms-roles-card');
+  if (roles.length) {
+    rolesCard.style.display = '';
+    document.getElementById('cd-ms-roles-tag').textContent = roles.length;
+    document.getElementById('cd-ms-roles-tbody').innerHTML = roles.map(r => `<tr>
+      <td style="font-weight:500">${escapeHtml(r.role)}</td>
+      <td style="font-size:12px">${r.members.map(m => escapeHtml(m)).join('<br>')}</td>
+      <td style="text-align:center">${r.high_risk
+        ? '<span class="b b-err" style="font-size:10px">Hög</span>'
+        : '<span class="b b-muted" style="font-size:10px">Normal</span>'}</td>
+    </tr>`).join('');
+  } else { rolesCard.style.display = 'none'; }
+
+  // Inaktiva licensierade konton
+  const inactive = data.inactive_licensed_users || [];
+  const inactiveCard = document.getElementById('cd-ms-inactive-card');
+  if (inactive.length) {
+    inactiveCard.style.display = '';
+    document.getElementById('cd-ms-inactive-tag').textContent = inactive.length;
+    document.getElementById('cd-ms-inactive-tbody').innerHTML = inactive.map(u => `<tr>
+      <td style="font-weight:500">${escapeHtml(u.name)}</td>
+      <td style="color:var(--sub);font-size:13px">${escapeHtml(u.email)}</td>
+      <td style="font-size:12px">${(u.licenses||[]).map(l => `<span style="display:inline-block;background:var(--tint2);color:var(--blue);font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;margin:1px">${escapeHtml(l)}</span>`).join('')}</td>
+      <td style="text-align:right;color:var(--sub);font-size:13px">${u.never_signed_in ? '<span class="b b-err" style="font-size:10px">Aldrig inloggad</span>' : `${u.last_signin_days} dagar sedan`}</td>
+    </tr>`).join('');
+  } else { inactiveCard.style.display = 'none'; }
+
+  // OneDrive
+  const odUsers = data.onedrive_users || [];
+  const odCard = document.getElementById('cd-ms-onedrive-card');
+  if (odUsers.length) {
+    odCard.style.display = '';
+    document.getElementById('cd-ms-onedrive-total').textContent = `Totalt: ${data.onedrive_total_gb} GB`;
+    document.getElementById('cd-ms-onedrive-tbody').innerHTML = odUsers.map(u => `<tr>
+      <td style="font-weight:500">${escapeHtml(u.name)}</td>
+      <td style="color:var(--sub);font-size:13px">${escapeHtml(u.email)}</td>
+      <td style="text-align:right;font-weight:600">${u.used_gb} GB</td>
+      <td style="text-align:right;color:var(--sub);font-size:12px">${u.last_activity || '—'}</td>
+    </tr>`).join('');
+  } else { odCard.style.display = 'none'; }
+
+  // SharePoint
+  const spSites = data.sharepoint_sites || [];
+  const spCard = document.getElementById('cd-ms-sharepoint-card');
+  if (spSites.length) {
+    spCard.style.display = '';
+    document.getElementById('cd-ms-sharepoint-total').textContent = `Totalt: ${data.sharepoint_total_gb} GB`;
+    document.getElementById('cd-ms-sharepoint-tbody').innerHTML = spSites.map(s => `<tr>
+      <td style="font-weight:500">${escapeHtml(s.name)}</td>
+      <td style="color:var(--sub);font-size:13px">${escapeHtml(s.owner)}</td>
+      <td style="text-align:right;font-weight:600">${s.used_gb} GB</td>
+      <td style="text-align:right;color:var(--sub);font-size:12px">${s.last_activity || '—'}</td>
+    </tr>`).join('');
+  } else { spCard.style.display = 'none'; }
+
+  // Intune
+  const intuneDevices = data.intune_devices || [];
+  const intuneCard = document.getElementById('cd-ms-intune-card');
+  if (intuneDevices.length) {
+    intuneCard.style.display = '';
+    document.getElementById('cd-ms-intune-tag').textContent = intuneDevices.length;
+    document.getElementById('cd-ms-intune-tbody').innerHTML = intuneDevices.map(d => {
+      const cls = d.compliance_key === 'compliant' ? 'b-ok' : d.compliance_key === 'noncompliant' ? 'b-err' : 'b-muted';
+      return `<tr>
+        <td style="font-weight:500">${escapeHtml(d.name)}</td>
+        <td style="color:var(--sub);font-size:13px">${escapeHtml(d.user)}</td>
+        <td style="font-size:12px">${escapeHtml(d.os)} ${escapeHtml(d.os_version)}</td>
+        <td style="text-align:center"><span class="b ${cls}" style="font-size:10px">${escapeHtml(d.compliance)}</span></td>
+        <td style="text-align:right;color:var(--sub);font-size:12px">${d.last_sync_days != null ? d.last_sync_days + ' dagar sedan' : '—'}</td>
+      </tr>`;
+    }).join('');
+  } else { intuneCard.style.display = 'none'; }
 
   // Hero-stats
   document.getElementById('cd-hero-stats').innerHTML = `
