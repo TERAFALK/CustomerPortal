@@ -185,8 +185,7 @@ body {
 /* ── Tabell ── */
 table { width: 100%; border-collapse: collapse; margin-bottom: 2px }
 thead { display: table-header-group }
-thead tr { page-break-after: avoid; break-after: avoid }
-tbody { page-break-inside: avoid; break-inside: avoid }
+thead tr { break-after: avoid }
 th {
   font-size: 9px;
   font-weight: 700;
@@ -204,8 +203,8 @@ td {
   vertical-align: middle;
 }
 tr:last-child td { border-bottom: none }
-tr { page-break-inside: avoid; break-inside: avoid }
-.grp-row { page-break-after: avoid; break-after: avoid }
+tr { break-inside: avoid }
+.grp-row { break-after: avoid }
 .grp-row td {
   background: #F6F8FB;
   font-size: 9px;
@@ -476,7 +475,7 @@ MICROSOFT_SECTION_TEMPLATE = """
     <tr>
       <td><span class="dev-name">{{ d.name }}</span></td>
       <td style="color:#5C616B;font-size:10px">{{ d.user }}</td>
-      <td style="font-size:10px;color:#5C616B">{{ d.os }} {{ d.os_version }}</td>
+      <td style="font-size:10px;color:#5C616B">{{ d.os }}</td>
       <td style="text-align:center">
         {% if d.compliance_key == 'compliant' %}<span class="badge s-ok">Godkänd</span>
         {% elif d.compliance_key == 'noncompliant' %}<span class="badge s-err">Ej godkänd</span>
