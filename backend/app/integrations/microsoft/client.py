@@ -150,12 +150,36 @@ class GraphClient:
         })
 
     async def _fetch_mfa(self, client):
+        # Försök 1: v1.0 (kräver UserAuthenticationMethod.Read.All)
         try:
             result = await self._get(client, "/reports/authenticationMethods/userRegistrationDetails", params={"$top": "999"})
-            logger.info("MFA API svarade med %d poster", len(result.get("value") or []))
+            logger.info("MFA (v1.0) svarade med %d poster", len(result.get("value") or []))
             return result
+        except Exception:
+            pass
+
+        # Försök 2: beta-API (kräver Reports.Read.All — lägre behörighetskrav)
+        try:
+            token = await self._get_token(client)
+            r = await client.get(
+                "https://graph.microsoft.com/beta/reports/credentialUserRegistrationDetails",
+                headers={"Authorization": f"Bearer {token}"},
+                params={"$top": "999"},
+            )
+            r.raise_for_status()
+            data = r.json()
+            logger.info("MFA (beta) svarade med %d poster", len(data.get("value") or []))
+            # beta-fälten skiljer sig något — normalisera
+            normalized = []
+            for u in (data.get("value") or []):
+                normalized.append({
+                    "userPrincipalName": u.get("userPrincipalName", ""),
+                    "isMfaRegistered": u.get("isMfaRegistered", False),
+                    "isMfaCapable": u.get("isMfaRegistered", False),
+                })
+            return {"value": normalized}
         except Exception as e:
-            logger.warning("MFA-data ej tillgänglig (kräver UserAuthenticationMethod.Read.All): %s", e)
+            logger.warning("MFA-data ej tillgänglig (prövade v1.0 + beta): %s", e)
             return {"value": []}
 
     async def _fetch_secure_score(self, client):
