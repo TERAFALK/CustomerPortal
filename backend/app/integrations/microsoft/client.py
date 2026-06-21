@@ -97,16 +97,11 @@ class GraphClient:
 
         # MFA — kräver UserAuthenticationMethod.Read.All + AuditLog.Read.All
         mfa_regs = mfa_raw.get("value") or []
-        mfa_total = len(mfa_regs)
 
         def _is_protected(u: dict) -> bool:
-            """Räknar användare som skyddade om de har MFA, passwordless eller WHfB."""
             if u.get("isMfaRegistered") or u.get("isMfaCapable") or u.get("isPasswordlessCapable"):
                 return True
-            methods = u.get("methodsRegistered") or []
-            return bool(methods)  # Har minst en registrerad metod
-
-        mfa_registered = sum(1 for u in mfa_regs if _is_protected(u))
+            return bool(u.get("methodsRegistered"))
 
         # Bygg UPN→skyddad + metoder för användartabellen
         mfa_by_upn: dict[str, dict] = {
@@ -116,13 +111,26 @@ class GraphClient:
             }
             for u in mfa_regs
         }
+
+        # Sätt MFA-info på varje användare
         if mfa_by_upn:
             for u in user_list:
-                upn = u["email"].lower()
-                info = mfa_by_upn.get(upn)
+                info = mfa_by_upn.get(u["email"].lower())
                 if info:
                     u["mfa"] = info["protected"]
                     u["mfa_methods"] = info["methods"]
+
+        # Räkna MFA bara för aktiva licensierade användare — utesluter resursbrevlådor och delade mailkorgar
+        licensed_active_upns = {
+            u["email"].lower()
+            for u in user_list
+            if u["enabled"] and u["licenses"]
+        }
+        mfa_total = len(licensed_active_upns)
+        mfa_registered = sum(
+            1 for upn, info in mfa_by_upn.items()
+            if upn in licensed_active_upns and info["protected"]
+        )
 
         # Secure Score
         scores = score_raw.get("value") or []
