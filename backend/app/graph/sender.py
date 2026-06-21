@@ -18,7 +18,7 @@ import logging
 
 import httpx
 
-from app.core.config import settings
+from app.core import app_settings
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +29,11 @@ GRAPH_SEND_URL = "https://graph.microsoft.com/v1.0/users/{sender}/sendMail"
 async def _get_token() -> str:
     async with httpx.AsyncClient() as client:
         r = await client.post(
-            GRAPH_TOKEN_URL.format(tenant=settings.GRAPH_TENANT_ID),
+            GRAPH_TOKEN_URL.format(tenant=app_settings.get("graph_tenant_id")),
             data={
                 "grant_type": "client_credentials",
-                "client_id": settings.GRAPH_CLIENT_ID,
-                "client_secret": settings.GRAPH_CLIENT_SECRET,
+                "client_id": app_settings.get("graph_client_id"),
+                "client_secret": app_settings.get("graph_client_secret"),
                 "scope": "https://graph.microsoft.com/.default",
             },
         )
@@ -54,7 +54,7 @@ async def send_report_email(
 
     Raises httpx.HTTPStatusError vid fel från Graph API.
     """
-    if not settings.GRAPH_TENANT_ID:
+    if not app_settings.get("graph_tenant_id"):
         logger.warning("Graph inte konfigurerat — hoppar över e-postutskick till %s", to_email)
         return
 
@@ -82,7 +82,7 @@ async def send_report_email(
 
     async with httpx.AsyncClient() as client:
         r = await client.post(
-            GRAPH_SEND_URL.format(sender=settings.GRAPH_SENDER),
+            GRAPH_SEND_URL.format(sender=app_settings.get("graph_sender")),
             json=payload,
             headers={"Authorization": f"Bearer {token}"},
             timeout=30,

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from app.api.auth import current_user, require_admin
 from app.db.models import User
+from app.core import app_settings
 from app.core.config import settings
 
 router = APIRouter()
@@ -22,7 +23,7 @@ async def scheduler_status(_: User = Depends(current_user)):
         "hour": settings.REPORT_SCHEDULE_HOUR,
         "minute": settings.REPORT_SCHEDULE_MINUTE,
         "timezone": "Europe/Stockholm",
-        "sender": settings.GRAPH_SENDER,
+        "sender": app_settings.get("graph_sender"),
         "next_run": get_next_run(),
     }
 

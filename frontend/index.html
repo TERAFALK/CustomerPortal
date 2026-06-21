@@ -605,6 +605,22 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
       <div class="ph"><div class="ph-title">Inställningar</div></div>
       <div id="settings-error" class="alert al-e" style="display:none;max-width:560px;margin-bottom:14px"><i class="ti ti-alert-circle"></i><span id="settings-error-msg"></span></div>
       <div class="fw" style="max-width:560px">
+        <div class="fsec">E-postutskick (Microsoft Graph)</div>
+        <div class="f2">
+          <div class="fr" style="margin:0"><label class="fl">Tenant ID</label><input class="fi" id="s-graph-tenant-id" placeholder="TERAFALK:s tenant ID"></div>
+          <div class="fr" style="margin:0"><label class="fl">Client ID</label><input class="fi" id="s-graph-client-id" placeholder="App registration client ID"></div>
+        </div>
+        <div class="fr"><label class="fl">Client Secret</label><input class="fi" type="password" id="s-graph-client-secret" placeholder="Lämna tomt för att behålla befintligt"></div>
+        <div class="fr"><label class="fl">Avsändaradress</label><input class="fi" id="s-graph-sender" placeholder="noreply@terafalk.com"></div>
+        <hr class="fdiv">
+        <div class="fsec">Microsoft 365 kundintegration (multi-tenant)</div>
+        <div class="f2">
+          <div class="fr" style="margin:0"><label class="fl">Client ID</label><input class="fi" id="s-ms-client-id" placeholder="Multi-tenant app client ID"></div>
+          <div class="fr" style="margin:0"><label class="fl">Redirect URI</label><input class="fi" id="s-ms-redirect-uri" placeholder="https://insight.terafalk.com/api/auth/microsoft/callback"></div>
+        </div>
+        <div class="fr"><label class="fl">Client Secret</label><input class="fi" type="password" id="s-ms-client-secret" placeholder="Lämna tomt för att behålla befintligt"></div>
+        <button class="btn btn-p btn-sm" onclick="saveAppSettings()" style="margin-bottom:20px"><i class="ti ti-check"></i> Spara anslutningsinställningar</button>
+        <hr class="fdiv">
         <div class="fsec">Rapportschema</div>
         <div class="alert al-info" style="margin-bottom:16px"><i class="ti ti-info-circle"></i><span id="s-next-run">Laddar nästa körning...</span></div>
         <div class="f2">
@@ -1848,7 +1864,10 @@ async function deleteUser(userId, email) {
 
 async function loadSettings() {
   try {
-    const s = await api('/api/scheduler/status');
+    const [s, appCfg] = await Promise.all([
+      api('/api/scheduler/status'),
+      api('/api/admin/settings'),
+    ]);
     const dayEl = document.getElementById('s-day');
     const hourEl = document.getElementById('s-hour');
     const minEl = document.getElementById('s-minute');
@@ -1861,8 +1880,41 @@ async function loadSettings() {
     } else if (nextEl) {
       nextEl.textContent = `Schema: dag ${s.day} varje månad kl ${String(s.hour).padStart(2,'0')}:${String(s.minute).padStart(2,'0')}`;
     }
+    // Populate app settings fields
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+    set('s-graph-tenant-id',   appCfg.graph_tenant_id);
+    set('s-graph-client-id',   appCfg.graph_client_id);
+    set('s-graph-client-secret', appCfg.graph_client_secret);
+    set('s-graph-sender',      appCfg.graph_sender);
+    set('s-ms-client-id',      appCfg.ms_app_client_id);
+    set('s-ms-client-secret',  appCfg.ms_app_client_secret);
+    set('s-ms-redirect-uri',   appCfg.ms_app_redirect_uri);
   } catch (e) {
     errToast('Kunde inte ladda inställningar', e);
+  }
+}
+
+async function saveAppSettings() {
+  const fields = {
+    graph_tenant_id:    document.getElementById('s-graph-tenant-id')?.value,
+    graph_client_id:    document.getElementById('s-graph-client-id')?.value,
+    graph_client_secret: document.getElementById('s-graph-client-secret')?.value,
+    graph_sender:       document.getElementById('s-graph-sender')?.value,
+    ms_app_client_id:   document.getElementById('s-ms-client-id')?.value,
+    ms_app_client_secret: document.getElementById('s-ms-client-secret')?.value,
+    ms_app_redirect_uri: document.getElementById('s-ms-redirect-uri')?.value,
+  };
+  // Strip masked/empty secrets — backend also guards, but be clean client-side
+  const body = {};
+  for (const [k, v] of Object.entries(fields)) {
+    if (v && v !== '••••••••') body[k] = v;
+  }
+  try {
+    await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify(body) });
+    t('Anslutningsinställningar sparade');
+    loadSettings(); // reload to get masked values
+  } catch (e) {
+    errToast('Kunde inte spara inställningar', e);
   }
 }
 
