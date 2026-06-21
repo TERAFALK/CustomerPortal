@@ -4,19 +4,16 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 from app.core.config import settings
+from app.core.limiter import limiter
 from app.db.database import init_db
 from app.db.seed import seed_first_admin
 from app.api import auth, customers, reports, integrations, scheduler as scheduler_router, users, ms_auth, admin_settings
 from app.core import app_settings
 from app.core.scheduler import start_scheduler
-
-limiter = Limiter(key_func=get_remote_address)
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
