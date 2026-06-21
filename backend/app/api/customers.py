@@ -280,7 +280,7 @@ async def microsoft_debug_skus(
     if not cred:
         raise HTTPException(400, "Ingen Microsoft-integration konfigurerad")
 
-    tenant_id = decrypt(cred.credentials_encrypted).get("tenant_id", "")
+    tenant_id = decrypt(cred.tenant_id)
     client_id = app_settings.get("ms_app_client_id")
     client_secret = app_settings.get("ms_app_client_secret")
 
