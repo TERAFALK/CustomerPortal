@@ -288,9 +288,99 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
   .fw{padding:18px;max-width:100%}
   .f2{grid-template-columns:1fr}
 
-  /* Tables: horizontal scroll */
-  .card .cb0,.card .cb{overflow-x:auto}
-  .tbl{min-width:520px}
+  /* ── Tables → card-rows on mobile ── */
+  /* Wrapper scroll as fallback */
+  .tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+  /* User list table */
+  #cd-ms-users-tbody tr,
+  #cd-ms-roles-tbody tr,
+  #cd-ms-inactive-tbody tr,
+  #cd-ms-onedrive-tbody tr,
+  #cd-ms-sharepoint-tbody tr,
+  #cd-ms-intune-tbody tr,
+  #cd-devices-tbody tr {
+    display:block;
+    padding:12px 16px;
+    border-bottom:1px solid var(--border);
+  }
+  #cd-ms-users-tbody tr:last-child,
+  #cd-ms-roles-tbody tr:last-child,
+  #cd-ms-inactive-tbody tr:last-child,
+  #cd-ms-onedrive-tbody tr:last-child,
+  #cd-ms-sharepoint-tbody tr:last-child,
+  #cd-ms-intune-tbody tr:last-child,
+  #cd-devices-tbody tr:last-child { border-bottom:none }
+
+  /* Hide all td by default, use data-label */
+  #cd-ms-users-tbody td,
+  #cd-ms-roles-tbody td,
+  #cd-ms-inactive-tbody td,
+  #cd-ms-onedrive-tbody td,
+  #cd-ms-sharepoint-tbody td,
+  #cd-ms-intune-tbody td,
+  #cd-devices-tbody td {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:4px 0;
+    font-size:13px;
+    border:none;
+    text-align:right;
+  }
+  #cd-ms-users-tbody td:before,
+  #cd-ms-roles-tbody td:before,
+  #cd-ms-inactive-tbody td:before,
+  #cd-ms-onedrive-tbody td:before,
+  #cd-ms-sharepoint-tbody td:before,
+  #cd-ms-intune-tbody td:before,
+  #cd-devices-tbody td:before {
+    content: attr(data-label);
+    font-size:11px;
+    font-weight:600;
+    color:var(--muted);
+    text-align:left;
+    flex-shrink:0;
+    margin-right:8px;
+  }
+  /* Hide thead */
+  #cd-ms-users-tbody ~ * thead,
+  .tbl thead { }
+  table:has(#cd-ms-users-tbody) thead,
+  table:has(#cd-ms-roles-tbody) thead,
+  table:has(#cd-ms-inactive-tbody) thead,
+  table:has(#cd-ms-onedrive-tbody) thead,
+  table:has(#cd-ms-sharepoint-tbody) thead,
+  table:has(#cd-ms-intune-tbody) thead,
+  table:has(#cd-devices-tbody) thead { display:none }
+
+  /* Customer list table */
+  #customers-tbody tr { display:block; padding:14px 16px; border-bottom:1px solid var(--border) }
+  #customers-tbody tr:last-child { border-bottom:none }
+  #customers-tbody td { display:flex;justify-content:space-between;align-items:center;padding:3px 0;border:none;font-size:13px;text-align:right }
+  #customers-tbody td:before { content:attr(data-label);font-size:11px;font-weight:600;color:var(--muted);text-align:left;flex-shrink:0;margin-right:8px }
+  table:has(#customers-tbody) thead { display:none }
+
+  /* UniFi 2-col → 1-col */
+  #cd-unifi-section > div:first-child { grid-template-columns:1fr!important }
+
+  /* Grupprubrik i devices-tabell — undantag från kort-layout */
+  #cd-devices-tbody tr[data-group="true"] { padding:0;display:table-row }
+  #cd-devices-tbody tr[data-group="true"] td { display:table-cell;padding:7px 16px }
+  #cd-devices-tbody tr[data-group="true"] td:before { display:none }
+
+  /* MS grid metrics → 1-col */
+  #cd-ms-users.mx { grid-template-columns:repeat(3,1fr) }
+
+  /* Stats */
+  .stats { grid-template-columns:repeat(2,1fr) }
+
+  /* Hero stats */
+  .hs-row { gap:16px }
+  .hs-v { font-size:22px }
+
+  /* Customer cards */
+  .cc-metrics { grid-template-columns:repeat(3,1fr) }
 
   /* Int pills → full width */
   .int-row{flex-direction:column}
@@ -1163,11 +1253,11 @@ async function loadCustomersList() {
       const statusBadge = verified.length > 0 ? `<span class="b b-ok">Aktiv</span>` : `<span class="b b-warn">Ej kopplad</span>`;
       return `
         <tr onclick="openCustomer('${c.id}')">
-          <td><div class="dn">${escapeHtml(c.name)}</div><div class="ds">${escapeHtml(c.contact_name || '')}</div></td>
-          <td>${escapeHtml(c.city || '—')}</td>
-          <td style="color:var(--muted);font-size:12px">${escapeHtml(c.contact_email || '—')}</td>
-          <td style="white-space:nowrap">${chips}</td>
-          <td>${statusBadge}</td>
+          <td data-label="Kund"><div class="dn">${escapeHtml(c.name)}</div><div class="ds">${escapeHtml(c.contact_name || '')}</div></td>
+          <td data-label="Ort">${escapeHtml(c.city || '—')}</td>
+          <td data-label="E-post" style="color:var(--muted);font-size:12px">${escapeHtml(c.contact_email || '—')}</td>
+          <td data-label="Integrationer" style="white-space:nowrap">${chips}</td>
+          <td data-label="Status">${statusBadge}</td>
         </tr>`;
     }).join('');
   } catch (e) {
@@ -1493,11 +1583,11 @@ function renderMicrosoftData(data) {
               ? '<span class="b b-err" style="font-size:10px"><i class="ti ti-shield-x" style="font-size:11px"></i> Nej</span>'
               : '<span style="color:var(--muted);font-size:12px">—</span>';
         return `<tr>
-          <td style="font-weight:500">${escapeHtml(u.name)}</td>
-          <td style="color:var(--sub);font-size:13px">${escapeHtml(u.email)}</td>
-          <td style="font-size:12px;max-width:220px">${lics || '<span style="color:var(--muted)">—</span>'}</td>
-          <td style="text-align:center"><span class="b ${u.enabled ? 'b-ok' : 'b-muted'}">${u.enabled ? 'Aktiv' : 'Inaktiv'}</span></td>
-          <td style="text-align:center">${mfaBadge}</td>
+          <td data-label="Namn" style="font-weight:500">${escapeHtml(u.name)}</td>
+          <td data-label="E-post" style="color:var(--sub);font-size:13px">${escapeHtml(u.email)}</td>
+          <td data-label="Licenser" style="font-size:12px;max-width:220px">${lics || '<span style="color:var(--muted)">—</span>'}</td>
+          <td data-label="Status" style="text-align:center"><span class="b ${u.enabled ? 'b-ok' : 'b-muted'}">${u.enabled ? 'Aktiv' : 'Inaktiv'}</span></td>
+          <td data-label="MFA" style="text-align:center">${mfaBadge}</td>
         </tr>`;
       }).join('');
   }
@@ -1509,9 +1599,9 @@ function renderMicrosoftData(data) {
     rolesCard.style.display = '';
     document.getElementById('cd-ms-roles-tag').textContent = roles.length;
     document.getElementById('cd-ms-roles-tbody').innerHTML = roles.map(r => `<tr>
-      <td style="font-weight:500">${escapeHtml(r.role)}</td>
-      <td style="font-size:12px">${r.members.map(m => escapeHtml(m)).join('<br>')}</td>
-      <td style="text-align:center">${r.high_risk
+      <td data-label="Roll" style="font-weight:500">${escapeHtml(r.role)}</td>
+      <td data-label="Medlemmar" style="font-size:12px">${r.members.map(m => escapeHtml(m)).join('<br>')}</td>
+      <td data-label="Risknivå" style="text-align:center">${r.high_risk
         ? '<span class="b b-err" style="font-size:10px">Hög</span>'
         : '<span class="b b-muted" style="font-size:10px">Normal</span>'}</td>
     </tr>`).join('');
@@ -1524,10 +1614,10 @@ function renderMicrosoftData(data) {
     inactiveCard.style.display = '';
     document.getElementById('cd-ms-inactive-tag').textContent = inactive.length;
     document.getElementById('cd-ms-inactive-tbody').innerHTML = inactive.map(u => `<tr>
-      <td style="font-weight:500">${escapeHtml(u.name)}</td>
-      <td style="color:var(--sub);font-size:13px">${escapeHtml(u.email)}</td>
-      <td style="font-size:12px">${(u.licenses||[]).map(l => `<span style="display:inline-block;background:var(--tint2);color:var(--blue);font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;margin:1px">${escapeHtml(l)}</span>`).join('')}</td>
-      <td style="text-align:right;color:var(--sub);font-size:13px">${u.never_signed_in ? '<span class="b b-err" style="font-size:10px">Aldrig inloggad</span>' : `${u.last_signin_days} dagar sedan`}</td>
+      <td data-label="Namn" style="font-weight:500">${escapeHtml(u.name)}</td>
+      <td data-label="E-post" style="color:var(--sub);font-size:13px">${escapeHtml(u.email)}</td>
+      <td data-label="Licenser" style="font-size:12px">${(u.licenses||[]).map(l => `<span style="display:inline-block;background:var(--tint2);color:var(--blue);font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;margin:1px">${escapeHtml(l)}</span>`).join('')}</td>
+      <td data-label="Inaktiv sedan" style="text-align:right;color:var(--sub);font-size:13px">${u.never_signed_in ? '<span class="b b-err" style="font-size:10px">Aldrig inloggad</span>' : `${u.last_signin_days} dagar sedan`}</td>
     </tr>`).join('');
   } else { inactiveCard.style.display = 'none'; }
 
@@ -1538,10 +1628,10 @@ function renderMicrosoftData(data) {
     odCard.style.display = '';
     document.getElementById('cd-ms-onedrive-total').textContent = `Totalt: ${data.onedrive_total_gb} GB`;
     document.getElementById('cd-ms-onedrive-tbody').innerHTML = odUsers.map(u => `<tr>
-      <td style="font-weight:500">${escapeHtml(u.name)}</td>
-      <td style="color:var(--sub);font-size:13px">${escapeHtml(u.email)}</td>
-      <td style="text-align:right;font-weight:600">${u.used_gb} GB</td>
-      <td style="text-align:right;color:var(--sub);font-size:12px">${u.last_activity || '—'}</td>
+      <td data-label="Användare" style="font-weight:500">${escapeHtml(u.name)}</td>
+      <td data-label="E-post" style="color:var(--sub);font-size:13px">${escapeHtml(u.email)}</td>
+      <td data-label="Använt" style="text-align:right;font-weight:600">${u.used_gb} GB</td>
+      <td data-label="Senast aktiv" style="text-align:right;color:var(--sub);font-size:12px">${u.last_activity || '—'}</td>
     </tr>`).join('');
   } else { odCard.style.display = 'none'; }
 
@@ -1552,10 +1642,10 @@ function renderMicrosoftData(data) {
     spCard.style.display = '';
     document.getElementById('cd-ms-sharepoint-total').textContent = `Totalt: ${data.sharepoint_total_gb} GB`;
     document.getElementById('cd-ms-sharepoint-tbody').innerHTML = spSites.map(s => `<tr>
-      <td style="font-weight:500">${escapeHtml(s.name)}</td>
-      <td style="color:var(--sub);font-size:13px">${escapeHtml(s.owner)}</td>
-      <td style="text-align:right;font-weight:600">${s.used_gb} GB</td>
-      <td style="text-align:right;color:var(--sub);font-size:12px">${s.last_activity || '—'}</td>
+      <td data-label="Sajt" style="font-weight:500">${escapeHtml(s.name)}</td>
+      <td data-label="Ägare" style="color:var(--sub);font-size:13px">${escapeHtml(s.owner)}</td>
+      <td data-label="Använt" style="text-align:right;font-weight:600">${s.used_gb} GB</td>
+      <td data-label="Senast aktiv" style="text-align:right;color:var(--sub);font-size:12px">${s.last_activity || '—'}</td>
     </tr>`).join('');
   } else { spCard.style.display = 'none'; }
 
@@ -1568,11 +1658,11 @@ function renderMicrosoftData(data) {
     document.getElementById('cd-ms-intune-tbody').innerHTML = intuneDevices.map(d => {
       const cls = d.compliance_key === 'compliant' ? 'b-ok' : d.compliance_key === 'noncompliant' ? 'b-err' : 'b-muted';
       return `<tr>
-        <td style="font-weight:500">${escapeHtml(d.name)}</td>
-        <td style="color:var(--sub);font-size:13px">${escapeHtml(d.user)}</td>
-        <td style="font-size:12px">${escapeHtml(d.os)}</td>
-        <td style="text-align:center"><span class="b ${cls}" style="font-size:10px">${escapeHtml(d.compliance)}</span></td>
-        <td style="text-align:right;color:var(--sub);font-size:12px">${d.last_sync_days != null ? d.last_sync_days + ' dagar sedan' : '—'}</td>
+        <td data-label="Enhet" style="font-weight:500">${escapeHtml(d.name)}</td>
+        <td data-label="Användare" style="color:var(--sub);font-size:13px">${escapeHtml(d.user)}</td>
+        <td data-label="OS" style="font-size:12px">${escapeHtml(d.os)}</td>
+        <td data-label="Kompatibilitet" style="text-align:center"><span class="b ${cls}" style="font-size:10px">${escapeHtml(d.compliance)}</span></td>
+        <td data-label="Synkad" style="text-align:right;color:var(--sub);font-size:12px">${d.last_sync_days != null ? d.last_sync_days + ' dagar sedan' : '—'}</td>
       </tr>`;
     }).join('');
   } else { intuneCard.style.display = 'none'; }
@@ -1692,17 +1782,17 @@ function renderUnifiData(data) {
       const devs = byLine[pl];
       const lbl = plLabel[pl] || pl.charAt(0).toUpperCase() + pl.slice(1);
       const updates = devs.filter(d => d.needs_update).length;
-      const header = `<tr><td colspan="4" class="grp">${lbl} · ${devs.length} st${updates ? ` · <span style="color:var(--warn)">${updates} uppdatering${updates > 1 ? 'ar' : ''}</span>` : ''}</td></tr>`;
+      const header = `<tr data-group="true"><td colspan="4" class="grp">${lbl} · ${devs.length} st${updates ? ` · <span style="color:var(--warn)">${updates} uppdatering${updates > 1 ? 'ar' : ''}</span>` : ''}</td></tr>`;
       const rows = devs.map(d => {
         const fwBadge = d.needs_update
           ? `<span class="b b-warn" style="font-size:10px">Uppdatering</span>`
           : `<span class="b b-ok" style="font-size:10px">Senaste</span>`;
         const dot = d.is_online ? 'var(--ok)' : 'var(--err)';
         return `<tr>
-          <td><div class="dn" style="display:flex;align-items:center;gap:8px"><span style="width:7px;height:7px;border-radius:50%;background:${dot};flex-shrink:0"></span>${escapeHtml(d.name)}</div></td>
-          <td style="color:var(--sub);font-size:12px">${escapeHtml(d.model || '—')}</td>
-          <td><span style="font-family:'Courier New',monospace;font-size:12px;color:var(--sub)">${escapeHtml(cleanFw(d.firmware_version))}</span> &nbsp;${fwBadge}</td>
-          <td style="text-align:right">${d.is_online ? '<span class="b b-ok">Online</span>' : '<span class="b b-err">Offline</span>'}</td>
+          <td data-label="Enhet"><div class="dn" style="display:flex;align-items:center;gap:8px"><span style="width:7px;height:7px;border-radius:50%;background:${dot};flex-shrink:0"></span>${escapeHtml(d.name)}</div></td>
+          <td data-label="Modell" style="color:var(--sub);font-size:12px">${escapeHtml(d.model || '—')}</td>
+          <td data-label="Firmware"><span style="font-family:'Courier New',monospace;font-size:12px;color:var(--sub)">${escapeHtml(cleanFw(d.firmware_version))}</span> &nbsp;${fwBadge}</td>
+          <td data-label="Status" style="text-align:right">${d.is_online ? '<span class="b b-ok">Online</span>' : '<span class="b b-err">Offline</span>'}</td>
         </tr>`;
       }).join('');
       return header + rows;
