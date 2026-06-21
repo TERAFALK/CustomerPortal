@@ -34,9 +34,9 @@ services:
       GRAPH_SENDER: ${GRAPH_SENDER:-noreply@terafalk.com}
       FIRST_ADMIN_EMAIL: ${FIRST_ADMIN_EMAIL:-admin@terafalk.com}
       FIRST_ADMIN_PASSWORD: ${FIRST_ADMIN_PASSWORD:-changeme}
-      MS_APP_CLIENT_ID: "c76d1075-b6f2-4733-9746-14aafb805f76"
-      MS_APP_CLIENT_SECRET: "nJ_8Q~r_ncytOaho5wtgxry-nXbYjrKsDhmBIcLl"
-      MS_APP_REDIRECT_URI: "https://insight.terafalk.com/api/auth/microsoft/callback"
+      MS_APP_CLIENT_ID: ${MS_APP_CLIENT_ID:-}
+      MS_APP_CLIENT_SECRET: ${MS_APP_CLIENT_SECRET:-}
+      MS_APP_REDIRECT_URI: ${MS_APP_REDIRECT_URI:-}
     volumes:
       - report_output:/app/reports_output
     expose:
