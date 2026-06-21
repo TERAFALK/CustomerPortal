@@ -1340,15 +1340,14 @@ async function loadCustomersList() {
       } else if (issue) {
         const unifi = issue.unifi;
         const ms = issue.microsoft;
-        const problems = [];
-        if (unifi?.offline_devices > 0) problems.push(`${unifi.offline_devices} offline`);
-        if (unifi?.wan_down > 0) problems.push(`${unifi.wan_down} WAN nere`);
-        if (ms) {
-          const mfaPct = ms.mfa_total > 0 ? Math.round(ms.mfa_registered / ms.mfa_total * 100) : null;
-          if (mfaPct !== null && mfaPct < 80) problems.push(`MFA ${mfaPct}%`);
-        }
-        statusBadge = problems.length
-          ? `<span class="b b-err" title="${problems.join(', ')}"><i class="ti ti-alert-triangle" style="font-size:11px"></i> ${problems[0]}${problems.length > 1 ? ` +${problems.length - 1}` : ''}</span>`
+        const mfaPct = ms?.mfa_total > 0 ? Math.round(ms.mfa_registered / ms.mfa_total * 100) : null;
+        const needsAction =
+          (unifi?.offline_devices > 0) ||
+          (unifi?.wan_down > 0) ||
+          (unifi?.needs_update > 0) ||
+          (mfaPct !== null && mfaPct < 80);
+        statusBadge = needsAction
+          ? `<span class="b b-err">Åtgärd krävs</span>`
           : `<span class="b b-ok">Allt OK</span>`;
       } else {
         statusBadge = `<span class="b b-ok">Aktiv</span>`;
