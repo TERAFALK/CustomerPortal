@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.auth import current_user, require_admin
+from app.core.integration_cache import get_cached, refresh_in_background, set_cached
 from app.core.security import encrypt
 from app.db.database import get_db
 from app.db.models import Customer, IntegrationCredential, User
@@ -264,7 +266,12 @@ async def get_integration_live_data(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(current_user),
 ):
-    """Hämtar live-data för en specifik integration och kund."""
+    """
+    Returnerar cachad integration-data direkt om tillgänglig.
+    Om cachen är gammal (>5 min) triggas en bakgrundsuppdatering
+    medan gammal data ändå returneras omedelbart.
+    Första anropet hämtar live (ingen cache ännu).
+    """
     if integration_type not in INTEGRATIONS:
         raise HTTPException(400, f"Okänd integrationstyp: {integration_type}")
 
@@ -278,9 +285,25 @@ async def get_integration_live_data(
         raise HTTPException(400, f"Ingen {integration_type}-integration konfigurerad")
 
     client = get_client(integration_type)
-    try:
+
+    async def fetch():
         return await client.fetch_report_data(cred)
-    except NotImplementedError as e:
-        raise HTTPException(501, str(e))
-    except Exception as e:
-        raise HTTPException(502, f"Kunde inte hämta data: {e}")
+
+    entry = get_cached(customer_id, integration_type)
+
+    if entry is None:
+        # Första anropet — hämta live och fyll cachen
+        try:
+            data = await fetch()
+        except NotImplementedError as e:
+            raise HTTPException(501, str(e))
+        except Exception as e:
+            raise HTTPException(502, f"Kunde inte hämta data: {e}")
+        set_cached(customer_id, integration_type, data)
+        return data
+
+    # Cache finns — returnera direkt
+    if entry.is_stale() and not entry.refreshing:
+        asyncio.create_task(refresh_in_background(customer_id, integration_type, fetch))
+
+    return entry.data
