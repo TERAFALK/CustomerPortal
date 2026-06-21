@@ -53,10 +53,6 @@ class GraphClient:
                 self._fetch_secure_score(client),
             )
 
-        # Logga råa SKU-koder för att identifiera saknade mappningar
-        for s in (licenses_raw.get("value") or []):
-            logger.info("SKU: %s | displayName från API saknas, skuPartNumber=%s", s.get("skuId",""), s.get("skuPartNumber",""))
-
         # Licenser — bygg skuId→{name,sku} karta för användarmappning
         sku_ignore = {
             "FLOW_FREE", "POWER_BI_STANDARD", "TEAMS_EXPLORATORY",
@@ -99,22 +95,34 @@ class GraphClient:
             for u in users
         ]
 
-        # MFA — authenticationMethods kräver UserAuthenticationMethod.Read.All
-        # Alternativ: räkna via strongAuthenticationRequirements i users (äldre API)
+        # MFA — kräver UserAuthenticationMethod.Read.All + AuditLog.Read.All
         mfa_regs = mfa_raw.get("value") or []
-        mfa_registered = sum(1 for u in mfa_regs if u.get("isMfaRegistered"))
         mfa_total = len(mfa_regs)
 
-        # Bygg UPN→isMfaRegistered karta för användartabellen
-        mfa_by_upn: dict[str, bool] = {
-            u.get("userPrincipalName", "").lower(): u.get("isMfaRegistered", False)
+        def _is_protected(u: dict) -> bool:
+            """Räknar användare som skyddade om de har MFA, passwordless eller WHfB."""
+            if u.get("isMfaRegistered") or u.get("isMfaCapable") or u.get("isPasswordlessCapable"):
+                return True
+            methods = u.get("methodsRegistered") or []
+            return bool(methods)  # Har minst en registrerad metod
+
+        mfa_registered = sum(1 for u in mfa_regs if _is_protected(u))
+
+        # Bygg UPN→skyddad + metoder för användartabellen
+        mfa_by_upn: dict[str, dict] = {
+            u.get("userPrincipalName", "").lower(): {
+                "protected": _is_protected(u),
+                "methods": u.get("methodsRegistered") or [],
+            }
             for u in mfa_regs
         }
         if mfa_by_upn:
             for u in user_list:
                 upn = u["email"].lower()
-                if upn in mfa_by_upn:
-                    u["mfa"] = mfa_by_upn[upn]
+                info = mfa_by_upn.get(upn)
+                if info:
+                    u["mfa"] = info["protected"]
+                    u["mfa_methods"] = info["methods"]
 
         # Secure Score
         scores = score_raw.get("value") or []
@@ -180,7 +188,7 @@ class GraphClient:
             return {"value": normalized}
         except Exception as e:
             logger.warning("MFA-data ej tillgänglig (prövade v1.0 + beta): %s", e)
-            return {"value": [], "_error": str(e)}
+            return {"value": []}
 
     async def _fetch_secure_score(self, client):
         try:
