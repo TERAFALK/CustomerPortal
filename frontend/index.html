@@ -367,8 +367,27 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
   #cd-devices-tbody tr[data-group="true"] td { display:table-cell;padding:7px 16px }
   #cd-devices-tbody tr[data-group="true"] td:before { display:none }
 
-  /* MS grid metrics → 1-col */
-  #cd-ms-users.mx { grid-template-columns:repeat(3,1fr) }
+  /* Metrics-rad (Totalt / Aktiva / MFA) → 3 lika kolumner men kompaktare */
+  #cd-ms-users.mx { grid-template-columns:repeat(3,1fr);gap:6px }
+  #cd-ms-users .mbox { padding:10px 8px }
+  #cd-ms-users .mv { font-size:17px }
+  #cd-ms-users .ml { font-size:10px }
+
+  /* Licenser i licenskortet → stapla namn + bar vertikalt */
+  .ms-lic-row { flex-direction:column;align-items:flex-start;gap:6px;padding:12px 0 }
+  .ms-lic-row > div:last-child { width:100%;min-width:unset!important }
+
+  /* Licenschips i användarraden → eget block under etiketten */
+  #cd-ms-users-tbody td[data-label="Licenser"],
+  #cd-ms-inactive-tbody td[data-label="Licenser"] {
+    flex-direction:column;
+    align-items:flex-start;
+    gap:4px;
+  }
+  #cd-ms-users-tbody td[data-label="Licenser"]:before,
+  #cd-ms-inactive-tbody td[data-label="Licenser"]:before {
+    margin-bottom:2px;
+  }
 
   /* Stats */
   .stats { grid-template-columns:repeat(2,1fr) }
