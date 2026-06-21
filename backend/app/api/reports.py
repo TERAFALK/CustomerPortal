@@ -63,7 +63,7 @@ async def preview_report(
     _: User = Depends(current_user),
 ):
     """Genererar och returnerar rapport-HTML för förhandsgranskning (ingen PDF, ingen DB-post)."""
-    from datetime import datetime
+    from app.core.time_utils import now_stockholm
     from app.integrations.registry import get_client
     from app.reports.pdf_generator import generate_preview_html
 
@@ -75,7 +75,7 @@ async def preview_report(
     if not customer:
         raise HTTPException(404, "Kund hittades inte")
 
-    period = datetime.utcnow().strftime("%Y-%m")
+    period = now_stockholm().strftime("%Y-%m")
     sections: dict = {}
     for cred in customer.credentials:
         if not cred.is_verified:

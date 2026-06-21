@@ -13,6 +13,8 @@ import json
 import logging
 from datetime import datetime
 
+from app.core.time_utils import now_stockholm
+
 _report_semaphore = asyncio.Semaphore(3)  # max 3 rapporter parallellt
 
 from sqlalchemy import select
@@ -60,7 +62,7 @@ async def _generate_report(customer_id: str) -> None:
             logger.error("Kund %s hittades inte", customer_id)
             return
 
-        period = datetime.utcnow().strftime("%Y-%m")
+        period = now_stockholm().strftime("%Y-%m")
 
         # Bygg rapportdata sektion för sektion — bara verifierade integrationer
         sections: dict[str, dict] = {}
@@ -127,7 +129,7 @@ async def _generate_report(customer_id: str) -> None:
                 pdf_filename=f"{customer.name} - {period}.pdf",
             )
             report.send_status = "sent"
-            report.sent_at = datetime.utcnow()
+            report.sent_at = now_stockholm()
         except Exception as e:
             logger.error("Graph-utskick misslyckades för %s: %s", customer.name, e)
             report.send_status = "error"

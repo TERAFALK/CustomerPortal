@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 from app.api.auth import current_user, require_admin
 from app.core.integration_cache import get_cached, refresh_in_background, set_cached
 from app.core.security import encrypt
+from app.core.time_utils import now_stockholm
 from app.db.database import get_db
 from app.db.models import Customer, IntegrationCredential, User
 from app.integrations.registry import INTEGRATIONS, get_client
@@ -253,7 +254,7 @@ async def verify_credential(
 
     if ok:
         cred.is_verified = True
-        cred.last_verified_at = datetime.utcnow()
+        cred.last_verified_at = now_stockholm()
         await db.commit()
 
     return {"status": "ok" if ok else "error", "detail": message}

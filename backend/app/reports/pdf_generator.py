@@ -7,6 +7,8 @@ import os
 import re
 from datetime import datetime
 
+from app.core.time_utils import now_stockholm
+
 from jinja2 import Environment, BaseLoader
 
 from app.core.config import settings
@@ -524,7 +526,7 @@ def _ctx(customer_name: str, period: str, rendered: str) -> dict:
         "base_style": BASE_STYLE,
         "customer_name": customer_name,
         "period_label": _month_label(period),
-        "generated_date": datetime.now().strftime("%Y-%m-%d"),
+        "generated_date": now_stockholm().strftime("%Y-%m-%d"),
         "rendered_sections": rendered,
         "sender": settings.GRAPH_SENDER,
     }
