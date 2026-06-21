@@ -824,7 +824,10 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
         </div>
       </div>
 
-      <div class="ph" style="margin-bottom:14px"><div><div class="ph-title" style="font-size:16px">Historik</div><div class="ph-sub">Senaste 50 rapporterna</div></div></div>
+      <div class="ph" style="margin-bottom:14px">
+        <div><div class="ph-title" style="font-size:16px">Historik</div><div class="ph-sub">Senaste 50 rapporterna</div></div>
+        <button class="btn btn-sm" style="color:var(--err);border-color:var(--err)" onclick="clearReportHistory()"><i class="ti ti-trash"></i> Rensa historik</button>
+      </div>
       <div id="reports-list">
         <div style="text-align:center;color:var(--muted);padding:30px">Laddar rapporter...</div>
       </div>
@@ -2161,6 +2164,17 @@ async function runAllReports() {
     t('Rapporter för alla kunder genereras i bakgrunden — se Rapporter om en stund');
   } catch (e) {
     errToast('Kunde inte starta rapportkörning', e);
+  }
+}
+
+async function clearReportHistory() {
+  if (!confirm('Är du säker på att du vill rensa all rapporthistorik? Alla poster och PDF-filer tas bort permanent.')) return;
+  try {
+    const res = await api('/api/reports/history', { method: 'DELETE' });
+    t(`Historik rensad — ${res.deleted_reports} rapport${res.deleted_reports !== 1 ? 'er' : ''} borttagen${res.deleted_reports !== 1 ? 'a' : ''}`);
+    loadReports();
+  } catch (e) {
+    errToast('Kunde inte rensa historik', e);
   }
 }
 

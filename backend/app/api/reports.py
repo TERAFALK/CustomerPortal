@@ -2,7 +2,7 @@ import os
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -59,6 +59,30 @@ async def trigger_all_reports(_: User = Depends(require_admin)):
     import asyncio
     asyncio.create_task(run_all_reports())
     return {"status": "accepted"}
+
+
+@router.delete("/history", status_code=200)
+async def clear_report_history(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Raderar all rapporthistorik (DB-poster och PDF-filer på disk)."""
+    rows = await db.scalars(select(Report))
+    reports = rows.all()
+    deleted_files = 0
+    for r in reports:
+        if r.pdf_path:
+            try:
+                safe_root = os.path.realpath(settings.REPORTS_OUTPUT_DIR)
+                pdf_abs = os.path.realpath(r.pdf_path)
+                if pdf_abs.startswith(safe_root + os.sep) and os.path.isfile(pdf_abs):
+                    os.remove(pdf_abs)
+                    deleted_files += 1
+            except Exception:
+                pass
+    result = await db.execute(delete(Report))
+    await db.commit()
+    return {"deleted_reports": result.rowcount, "deleted_files": deleted_files}
 
 
 @router.get("/preview/{customer_id}", response_class=HTMLResponse)
