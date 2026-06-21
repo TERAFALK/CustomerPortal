@@ -1266,9 +1266,9 @@ async function loadDashboard() {
     const uUpdate = u.needs_update || 0;
     const uWanDown = u.wan_down || 0;
     document.getElementById('dash-unifi-badge').innerHTML =
-      (uOffline + uWanDown) === 0
-        ? `<span class="b b-ok">Allt online</span>`
-        : `<span class="b b-err">${uOffline + uWanDown} problem</span>`;
+      (uOffline + uWanDown + uUpdate) === 0
+        ? `<span class="b b-ok">Allt OK</span>`
+        : `<span class="b b-err">Åtgärd krävs</span>`;
     document.getElementById('dash-unifi-body').innerHTML = [
       _aggMetric(u.total_devices ?? '—', 'Totalt antal enheter', 'ti-router', 'var(--text)'),
       _aggMetric(uOffline, 'Offline enheter', 'ti-wifi-off', uOffline > 0 ? 'var(--err)' : 'var(--ok)'),
@@ -1284,9 +1284,9 @@ async function loadDashboard() {
     const mfaPct = m.mfa_total > 0 ? Math.round(m.mfa_registered / m.mfa_total * 100) : null;
     const inactive = m.inactive_licensed || 0;
     document.getElementById('dash-ms-badge').innerHTML =
-      (mfaPct === null || mfaPct >= 95)
-        ? `<span class="b b-ok">God säkerhet</span>`
-        : `<span class="b b-warn">Åtgärder rekommenderas</span>`;
+      (mfaPct === null || mfaPct >= 80)
+        ? `<span class="b b-ok">Allt OK</span>`
+        : `<span class="b b-err">Åtgärd krävs</span>`;
     document.getElementById('dash-ms-body').innerHTML = [
       _aggMetric(m.total_users ?? '—', 'Totalt antal användare', 'ti-users', 'var(--text)'),
       _aggMetric(mfaPct !== null ? `${mfaPct}%` : '—', 'MFA-täckning', 'ti-shield-check',
@@ -1837,8 +1837,8 @@ function renderUnifiData(data) {
   // ── WAN-panel: visa per host om flera, annars direkt ──
   const wanEl = document.getElementById('cd-wan-rows');
   const badgeEl = document.getElementById('cd-wan-status-badge');
-  badgeEl.textContent = allWans.length ? `${onlineWans}/${allWans.length} aktiv` : '—';
-  badgeEl.className = 'b ' + (onlineWans === allWans.length && allWans.length ? 'b-ok' : 'b-warn');
+  badgeEl.textContent = onlineWans === allWans.length && allWans.length ? 'Allt OK' : allWans.length ? 'Åtgärd krävs' : '—';
+  badgeEl.className = 'b ' + (onlineWans === allWans.length && allWans.length ? 'b-ok' : allWans.length ? 'b-err' : 'b-muted');
 
   const multiHost = hosts.length > 1;
   wanEl.innerHTML = hosts.map(h => {
