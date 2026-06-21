@@ -376,12 +376,8 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
   /* Licenser i licenskortet → behåll rad-layout, ta bort min-width på baren */
   .ms-lic-row > div[style*="min-width"] { min-width:100px!important }
 
-  /* Licenschips i användarraden → wrap till höger, konsekvent med övriga värden */
-  #cd-ms-users-tbody td[data-label="Licenser"],
-  #cd-ms-inactive-tbody td[data-label="Licenser"] {
-    flex-wrap:wrap;
-    row-gap:4px;
-  }
+  /* Licenschips i användarraden → höger-justerade på mobil */
+  .lic-chips { display:flex;flex-wrap:wrap;justify-content:flex-end;gap:2px }
 
   /* Stats */
   .stats { grid-template-columns:repeat(2,1fr) }
@@ -1590,7 +1586,7 @@ function renderMicrosoftData(data) {
         return `<tr>
           <td data-label="Namn" style="font-weight:500">${escapeHtml(u.name)}</td>
           <td data-label="E-post" style="color:var(--sub);font-size:13px">${escapeHtml(u.email)}</td>
-          <td data-label="Licenser" style="font-size:12px"><div style="display:flex;flex-wrap:wrap;justify-content:flex-end;gap:2px">${lics || '<span style="color:var(--muted)">—</span>'}</div></td>
+          <td data-label="Licenser" style="font-size:12px"><div class="lic-chips">${lics || '<span style="color:var(--muted)">—</span>'}</div></td>
           <td data-label="Status" style="text-align:center"><span class="b ${u.enabled ? 'b-ok' : 'b-muted'}">${u.enabled ? 'Aktiv' : 'Inaktiv'}</span></td>
           <td data-label="MFA" style="text-align:center">${mfaBadge}</td>
         </tr>`;
