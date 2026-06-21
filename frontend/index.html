@@ -235,6 +235,87 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
 .back:hover{color:var(--blue)}
 .back i{font-size:15px}
 
+/* ── Mobile overlay ── */
+.sb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:199}
+
+/* ── Mobile bottom nav ── */
+.mobile-nav{display:none}
+
+/* ── Responsive ── */
+@media(max-width:768px){
+  /* Login */
+  .login-panel-left{display:none}
+  .login-panel-right{background:#fff;padding:24px 20px}
+  .login-box{width:100%;max-width:400px;padding:32px 24px;box-shadow:none;border:none}
+  .login-title{font-size:18px}
+
+  /* App layout */
+  .app{flex-direction:column}
+  .sidebar{
+    position:fixed;top:0;left:0;bottom:0;z-index:200;
+    width:260px;transform:translateX(-100%);
+    transition:transform 0.24s cubic-bezier(0.4,0,0.2,1);
+    height:100vh;overflow-y:auto;
+  }
+  .sidebar.open{transform:translateX(0)}
+  .sb-overlay.visible{display:block}
+  .main{width:100%;min-height:100vh;padding-bottom:64px}
+
+  /* Topbar */
+  .topbar{padding:0 16px;gap:10px}
+  .tb-hamburger{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);border:1px solid var(--border);background:var(--surface);cursor:pointer;color:var(--text);flex-shrink:0}
+  .tb-hamburger i{font-size:18px}
+
+  /* Content */
+  .content{padding:18px 16px}
+  .ph{flex-direction:column;gap:12px;margin-bottom:18px}
+  .ph-title{font-size:17px}
+
+  /* Stats grid → 2 cols */
+  .stats{grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:18px}
+  .sv{font-size:22px}
+
+  /* Customer grid → 1 col */
+  .cg{grid-template-columns:1fr}
+
+  /* ISP metrics → 1 col */
+  .mx{grid-template-columns:1fr}
+
+  /* MS grid → 1 col */
+  .ms-grid{grid-template-columns:1fr}
+
+  /* Form */
+  .fw{padding:18px;max-width:100%}
+  .f2{grid-template-columns:1fr}
+
+  /* Tables: horizontal scroll */
+  .card .cb0,.card .cb{overflow-x:auto}
+  .tbl{min-width:520px}
+
+  /* Int pills → full width */
+  .int-row{flex-direction:column}
+  .int-p{min-width:unset;width:100%}
+
+  /* Hero stats → wrap tighter */
+  .hs-row{gap:20px}
+
+  /* Mobile bottom nav */
+  .mobile-nav{
+    display:flex;position:fixed;bottom:0;left:0;right:0;z-index:150;
+    background:#fff;border-top:1px solid var(--border);
+    height:64px;padding:0 4px;align-items:stretch;
+  }
+  .mn-item{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:3px;cursor:pointer;color:var(--muted);font-size:10px;font-weight:600;
+    border:none;background:none;padding:6px 2px;border-radius:var(--r);transition:color 0.12s;
+    letter-spacing:0.02em;
+  }
+  .mn-item i{font-size:22px;line-height:1}
+  .mn-item.active{color:var(--blue)}
+  .mn-item span{line-height:1}
+}
+
 /* ── Integration pills ── */
 .int-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
 .int-p{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:12px 16px;min-width:158px;transition:all 0.12s;box-shadow:var(--shadow)}
@@ -375,9 +456,17 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
   </div>
 </aside>
 
+<!-- Mobile overlay -->
+<div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
+
 <div class="main">
   <div class="topbar">
-    <span class="page-title" id="pt">Översikt</span>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="tb-hamburger" id="hamburger-btn" onclick="toggleSidebar()">
+        <i class="ti ti-menu-2"></i>
+      </div>
+      <span class="page-title" id="pt">Översikt</span>
+    </div>
     <div class="tb-right">
       <button class="btn btn-g btn-sm" onclick="refreshCurrent()"><i class="ti ti-refresh"></i> Uppdatera</button>
     </div>
@@ -2208,6 +2297,54 @@ function escapeHtml(str) {
   return String(str)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+</script>
+
+<!-- Mobile bottom nav -->
+<nav class="mobile-nav" id="mobile-nav">
+  <button class="mn-item active" id="mn-dashboard" onclick="nav('dashboard');setMobileNav('dashboard')">
+    <i class="ti ti-layout-dashboard"></i><span>Översikt</span>
+  </button>
+  <button class="mn-item" id="mn-customers" onclick="nav('customers');setMobileNav('customers')">
+    <i class="ti ti-building-store"></i><span>Kunder</span>
+  </button>
+  <button class="mn-item" id="mn-reports" onclick="nav('reports');setMobileNav('reports')">
+    <i class="ti ti-file-description"></i><span>Rapporter</span>
+  </button>
+  <button class="mn-item" id="mn-settings" onclick="nav('settings');setMobileNav('settings')">
+    <i class="ti ti-settings"></i><span>Inställningar</span>
+  </button>
+</nav>
+
+<script>
+function toggleSidebar() {
+  const sb = document.querySelector('.sidebar');
+  const ov = document.getElementById('sb-overlay');
+  sb.classList.toggle('open');
+  ov.classList.toggle('visible');
+}
+function closeSidebar() {
+  document.querySelector('.sidebar').classList.remove('open');
+  document.getElementById('sb-overlay').classList.remove('visible');
+}
+// Close sidebar on nav click on mobile
+document.querySelectorAll('.nav').forEach(el => {
+  el.addEventListener('click', () => {
+    if(window.innerWidth <= 768) closeSidebar();
+  });
+});
+// Hide hamburger on desktop
+function updateHamburger() {
+  const btn = document.getElementById('hamburger-btn');
+  if(btn) btn.style.display = window.innerWidth <= 768 ? 'flex' : 'none';
+}
+window.addEventListener('resize', updateHamburger);
+updateHamburger();
+
+function setMobileNav(key) {
+  document.querySelectorAll('.mn-item').forEach(el => el.classList.remove('active'));
+  const el = document.getElementById('mn-' + key);
+  if(el) el.classList.add('active');
 }
 </script>
 </body>
