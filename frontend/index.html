@@ -1753,7 +1753,7 @@ function renderUnifiData(data) {
   const heroEl = document.getElementById('cd-hero-stats');
   heroEl.innerHTML = `
     ${allWans.length ? `<div><div class="hs-v">${onlineWans}/${allWans.length}</div><div class="hs-l">WAN online</div></div>` : ''}
-    <div><div class="hs-v">${data.total_devices ?? devices.length}</div><div class="hs-l">Enheter</div></div>
+    <div><div class="hs-v">${devices.length || data.total_devices || 0}</div><div class="hs-l">Enheter</div></div>
     <div><div class="hs-v">${devices.filter(d => d.is_online).length}</div><div class="hs-l">Online</div></div>
     <div><div class="hs-v">${devices.filter(d => d.needs_update).length}</div><div class="hs-l">Behöver uppdatering</div></div>
   `;
@@ -1786,9 +1786,9 @@ function renderUnifiData(data) {
     const wanRows = wans.map(w => `
       <div class="wan-r">
         <span class="wan-nm">${escapeHtml(w.name)}</span>
-        <span class="b ${w.uptime_percentage === 100 ? 'b-ok' : 'b-err'}" style="margin-right:8px;flex-shrink:0">${w.uptime_percentage === 100 ? 'Online' : 'Nere'}</span>
-        <div class="ub-w"><div class="ub-bg"><div class="ub ${w.uptime_percentage === 100 ? 'ub-ok' : 'ub-dn'}" style="width:${w.uptime_percentage || 0}%"></div></div>
-        <span style="font-size:12px;font-weight:700;width:38px;text-align:right">${w.uptime_percentage ?? 0}%</span></div>
+        <span class="b ${(w.uptime_percentage ?? 0) >= 99.9 ? 'b-ok' : 'b-err'}" style="margin-right:8px;flex-shrink:0">${(w.uptime_percentage ?? 0) >= 99.9 ? 'Online' : 'Nere'}</span>
+        <div class="ub-w"><div class="ub-bg"><div class="ub ${(w.uptime_percentage ?? 0) >= 99.9 ? 'ub-ok' : 'ub-dn'}" style="width:${Math.min(w.uptime_percentage || 0, 100)}%"></div></div>
+        <span style="font-size:12px;font-weight:700;width:38px;text-align:right">${(w.uptime_percentage ?? 0).toFixed(2)}%</span></div>
         ${w.isp_name ? `<span style="font-size:11px;color:var(--muted);flex-shrink:0;margin-left:6px">${escapeHtml(w.isp_name)}</span>` : ''}
       </div>
       ${w.has_issues ? `<div class="alert al-e" style="margin:4px 0 6px"><i class="ti ti-alert-circle"></i><span>${escapeHtml(w.name)} har ${w.issue_count} avbrottstillfällen</span></div>` : ''}
