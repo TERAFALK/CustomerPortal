@@ -478,8 +478,8 @@ MICROSOFT_SECTION_TEMPLATE = """
       <td style="color:#5C616B;font-size:10px">{{ d.user }}</td>
       <td style="font-size:10px;color:#5C616B">{{ d.os }} {{ d.os_version }}</td>
       <td style="text-align:center">
-        {% if d.compliance_key == 'compliant' %}<span class="badge s-ok">Kompatibel</span>
-        {% elif d.compliance_key == 'noncompliant' %}<span class="badge s-err">Ej kompatibel</span>
+        {% if d.compliance_key == 'compliant' %}<span class="badge s-ok">Godkänd</span>
+        {% elif d.compliance_key == 'noncompliant' %}<span class="badge s-err">Ej godkänd</span>
         {% else %}<span class="badge" style="background:#F3F5F8;color:#5C616B">{{ d.compliance }}</span>{% endif %}
       </td>
       <td style="text-align:right;color:#5C616B;font-size:10px">{% if d.last_sync_days is not none %}{{ d.last_sync_days }} dagar sedan{% else %}&mdash;{% endif %}</td>

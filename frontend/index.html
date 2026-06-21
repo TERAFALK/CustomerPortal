@@ -1431,7 +1431,7 @@ function renderMicrosoftData(data) {
       return `<tr>
         <td style="font-weight:500">${escapeHtml(d.name)}</td>
         <td style="color:var(--sub);font-size:13px">${escapeHtml(d.user)}</td>
-        <td style="font-size:12px">${escapeHtml(d.os)} ${escapeHtml(d.os_version)}</td>
+        <td style="font-size:12px">${escapeHtml(d.os)}</td>
         <td style="text-align:center"><span class="b ${cls}" style="font-size:10px">${escapeHtml(d.compliance)}</span></td>
         <td style="text-align:right;color:var(--sub);font-size:12px">${d.last_sync_days != null ? d.last_sync_days + ' dagar sedan' : '—'}</td>
       </tr>`;

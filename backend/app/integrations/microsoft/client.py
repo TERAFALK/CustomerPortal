@@ -240,9 +240,9 @@ class GraphClient:
 
         # Intune-enheter
         _COMPLIANCE_LABEL = {
-            "compliant": "Kompatibel", "noncompliant": "Ej kompatibel",
+            "compliant": "Godkänd", "noncompliant": "Ej godkänd",
             "unknown": "Okänd", "notApplicable": "Ej tillämplig",
-            "inGracePeriod": "I respitperiod", "configManager": "Config Manager",
+            "inGracePeriod": "Respitperiod", "configManager": "Config Manager",
         }
         intune_devices = []
         for d in (intune_raw.get("value") or []):
@@ -253,11 +253,15 @@ class GraphClient:
             except Exception:
                 sync_days = None
             compliance = d.get("complianceState", "unknown")
+            os_name = d.get("operatingSystem", "")
+            os_version = d.get("osVersion", "")
+            if os_name.lower() == "windows":
+                os_name = _windows_version(os_version)
             intune_devices.append({
                 "name": d.get("deviceName", ""),
                 "user": d.get("userDisplayName", "") or d.get("userPrincipalName", ""),
-                "os": d.get("operatingSystem", ""),
-                "os_version": d.get("osVersion", ""),
+                "os": os_name,
+                "os_version": os_version,
                 "compliance": _COMPLIANCE_LABEL.get(compliance, compliance),
                 "compliance_key": compliance,
                 "last_sync_days": sync_days,
@@ -387,6 +391,31 @@ class GraphClient:
         except Exception as e:
             logger.warning("Secure Score ej tillgänglig: %s", e)
             return {"value": []}
+
+
+def _windows_version(os_version: str) -> str:
+    """Härleder Windows 10/11 och version från byggnumret som Intune returnerar."""
+    try:
+        build = int(os_version.split(".")[2])
+    except (IndexError, ValueError):
+        return "Windows"
+    if build >= 26100:
+        win_ver = "Windows 11 24H2"
+    elif build >= 22631:
+        win_ver = "Windows 11 23H2"
+    elif build >= 22621:
+        win_ver = "Windows 11 22H2"
+    elif build >= 22000:
+        win_ver = "Windows 11"
+    elif build >= 19045:
+        win_ver = "Windows 10 22H2"
+    elif build >= 19044:
+        win_ver = "Windows 10 21H2"
+    elif build >= 19043:
+        win_ver = "Windows 10 21H1"
+    else:
+        win_ver = "Windows 10"
+    return win_ver
 
 
 def _parse_csv(text: str) -> list[dict]:
