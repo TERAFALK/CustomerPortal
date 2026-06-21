@@ -61,212 +61,17 @@ class GraphClient:
                 self._fetch_intune_devices(client),
             )
 
-        # Licenser — bygg skuId→{name,sku} karta för användarmappning
-        sku_ignore = {
-            "FLOW_FREE", "POWER_BI_STANDARD", "TEAMS_EXPLORATORY",
-            "WINDOWS_STORE", "DEVELOPERPACK_E5",
-        }
-        sku_id_map: dict[str, str] = {}  # skuId (guid) → friendly name
-        licenses = []
-        for s in (licenses_raw.get("value") or []):
-            part = s.get("skuPartNumber", "")
-            sku_id = s.get("skuId", "")
-            friendly = _friendly_sku(part)
-            if sku_id:
-                sku_id_map[sku_id] = friendly
-            if part in sku_ignore or s.get("capabilityStatus") != "Enabled":
-                continue
-            licenses.append({
-                "name": friendly,
-                "sku": part,
-                "sku_id": sku_id,
-                "total": s.get("prepaidUnits", {}).get("enabled", 0),
-                "assigned": s.get("consumedUnits", 0),
-            })
-
-        # Användare — inkl. tilldelade licenser
-        users = users_raw.get("value") or []
-        total_users = users_raw.get("@odata.count") or len(users)
-        enabled_users = sum(1 for u in users if u.get("accountEnabled"))
-        user_list = [
-            {
-                "name": u.get("displayName") or u.get("userPrincipalName", ""),
-                "email": u.get("mail") or u.get("userPrincipalName", ""),
-                "title": u.get("jobTitle") or "",
-                "enabled": u.get("accountEnabled", False),
-                "licenses": [
-                    sku_id_map.get(lic.get("skuId", ""), lic.get("skuId", ""))
-                    for lic in (u.get("assignedLicenses") or [])
-                    if lic.get("skuId") in sku_id_map
-                ],
-            }
-            for u in users
-        ]
-
-        # MFA — kräver UserAuthenticationMethod.Read.All + AuditLog.Read.All
-        mfa_regs = mfa_raw.get("value") or []
-
-        def _is_protected(u: dict) -> bool:
-            if u.get("isMfaRegistered") or u.get("isMfaCapable") or u.get("isPasswordlessCapable"):
-                return True
-            return bool(u.get("methodsRegistered"))
-
-        # Bygg UPN→skyddad + metoder för användartabellen
-        mfa_by_upn: dict[str, dict] = {
-            u.get("userPrincipalName", "").lower(): {
-                "protected": _is_protected(u),
-                "methods": u.get("methodsRegistered") or [],
-            }
-            for u in mfa_regs
-        }
-
-        # Sätt MFA-info på varje användare
-        if mfa_by_upn:
-            for u in user_list:
-                info = mfa_by_upn.get(u["email"].lower())
-                if info:
-                    u["mfa"] = info["protected"]
-                    u["mfa_methods"] = info["methods"]
-
-        # Räkna MFA bara för aktiva licensierade användare — utesluter resursbrevlådor och delade mailkorgar
-        licensed_active_upns = {
-            u["email"].lower()
-            for u in user_list
-            if u["enabled"] and u["licenses"]
-        }
-        mfa_total = len(licensed_active_upns)
-        mfa_registered = sum(
-            1 for upn, info in mfa_by_upn.items()
-            if upn in licensed_active_upns and info["protected"]
-        )
-
-        # Secure Score
-        scores = score_raw.get("value") or []
-        secure_score = None
-        secure_score_max = None
-        if scores:
-            sc = scores[0]
-            secure_score = sc.get("currentScore")
-            secure_score_max = sc.get("maxScore")
-
-        # Admin-roller
-        _HIGH_RISK_ROLES = {
-            "Global Administrator", "Privileged Role Administrator",
-            "Privileged Authentication Administrator", "Security Administrator",
-        }
-        role_map: dict[str, list[str]] = {}
-        for assignment in (roles_raw.get("value") or []):
-            rd = assignment.get("roleDefinition") or {}
-            role_name = rd.get("displayName", "")
-            principal = assignment.get("principal") or {}
-            member_name = principal.get("displayName") or principal.get("userPrincipalName", "")
-            if role_name and member_name:
-                role_map.setdefault(role_name, []).append(member_name)
-        admin_roles = [
-            {"role": role, "members": members, "high_risk": role in _HIGH_RISK_ROLES}
-            for role, members in sorted(role_map.items())
-            if members
-        ]
-
-        # Inaktiva licensierade användare (signInActivity, kräver AzureAD P1+)
-        inactive_licensed: list[dict] = []
-        now_utc = datetime.now(timezone.utc)
-        for u in user_list:
-            if not u["enabled"] or not u["licenses"]:
-                continue
-            sign_in = next(
-                (raw_u.get("signInActivity") for raw_u in (users_raw.get("value") or [])
-                 if (raw_u.get("mail") or raw_u.get("userPrincipalName", "")).lower() == u["email"].lower()),
-                None
-            )
-            if sign_in is None:
-                continue  # signInActivity inte tillgänglig för denna tenant
-            last_dt_str = sign_in.get("lastSignInDateTime") if sign_in else None
-            if last_dt_str:
-                try:
-                    last_dt = datetime.fromisoformat(last_dt_str.replace("Z", "+00:00"))
-                    days = (now_utc - last_dt).days
-                except Exception:
-                    days = None
-            else:
-                days = None
-            if days is None or days > 30:
-                inactive_licensed.append({
-                    "name": u["name"],
-                    "email": u["email"],
-                    "licenses": u["licenses"],
-                    "last_signin_days": days,
-                    "never_signed_in": last_dt_str is None,
-                })
-
-        # OneDrive-användning
-        onedrive_users = []
-        onedrive_total_gb = 0.0
-        if od_csv:
-            for row in _parse_csv(od_csv):
-                if row.get("Is Deleted", "").lower() == "true":
-                    continue
-                used = _bytes_to_gb(row.get("Storage Used (Byte)", 0))
-                onedrive_total_gb += used
-                onedrive_users.append({
-                    "name": row.get("Owner Display Name", "") or row.get("User Principal Name", ""),
-                    "email": row.get("User Principal Name", ""),
-                    "used_gb": used,
-                    "last_activity": row.get("Last Activity Date", "") or None,
-                })
-            onedrive_users.sort(key=lambda x: x["used_gb"], reverse=True)
-            onedrive_total_gb = round(onedrive_total_gb, 2)
-
-        # SharePoint-sajter
-        sharepoint_sites = []
-        sharepoint_total_gb = 0.0
-        if sp_csv:
-            for row in _parse_csv(sp_csv):
-                if row.get("Is Deleted", "").lower() == "true":
-                    continue
-                used = _bytes_to_gb(row.get("Storage Used (Byte)", 0))
-                sharepoint_total_gb += used
-                url = row.get("Site URL", "")
-                name = url.rstrip("/").split("/")[-1] or url
-                sharepoint_sites.append({
-                    "name": name,
-                    "url": url,
-                    "owner": row.get("Owner Display Name", ""),
-                    "used_gb": used,
-                    "last_activity": row.get("Last Activity Date", "") or None,
-                })
-            sharepoint_sites.sort(key=lambda x: x["used_gb"], reverse=True)
-            sharepoint_total_gb = round(sharepoint_total_gb, 2)
-
-        # Intune-enheter
-        _COMPLIANCE_LABEL = {
-            "compliant": "Godkänd", "noncompliant": "Ej godkänd",
-            "unknown": "Okänd", "notApplicable": "Ej tillämplig",
-            "inGracePeriod": "Respitperiod", "configManager": "Config Manager",
-        }
-        intune_devices = []
-        for d in (intune_raw.get("value") or []):
-            last_sync = d.get("lastSyncDateTime", "")
-            try:
-                sync_dt = datetime.fromisoformat(last_sync.replace("Z", "+00:00"))
-                sync_days = (now_utc - sync_dt).days
-            except Exception:
-                sync_days = None
-            compliance = d.get("complianceState", "unknown")
-            os_name = d.get("operatingSystem", "")
-            os_version = d.get("osVersion", "")
-            if os_name.lower() == "windows":
-                os_name = _windows_version(os_version)
-            intune_devices.append({
-                "name": d.get("deviceName", ""),
-                "user": d.get("userDisplayName", "") or d.get("userPrincipalName", ""),
-                "os": os_name,
-                "os_version": os_version,
-                "compliance": _COMPLIANCE_LABEL.get(compliance, compliance),
-                "compliance_key": compliance,
-                "last_sync_days": sync_days,
-            })
-        intune_devices.sort(key=lambda x: (x["compliance_key"] != "compliant", x["name"]))
+        licenses, sku_id_map = _build_licenses(licenses_raw)
+        user_list, total_users, enabled_users = _build_users(users_raw, sku_id_map)
+        mfa_by_upn = _build_mfa_map(mfa_raw)
+        _apply_mfa_to_users(user_list, mfa_by_upn)
+        mfa_registered, mfa_total = _count_mfa(user_list, mfa_by_upn)
+        secure_score, secure_score_max = _extract_secure_score(score_raw)
+        admin_roles = _build_admin_roles(roles_raw)
+        inactive_licensed = _build_inactive_users(user_list, users_raw)
+        onedrive_users, onedrive_total_gb = _build_onedrive(od_csv)
+        sharepoint_sites, sharepoint_total_gb = _build_sharepoint(sp_csv)
+        intune_devices = _build_intune_devices(intune_raw)
 
         return {
             "integration": "microsoft",
@@ -393,6 +198,229 @@ class GraphClient:
             return {"value": []}
 
 
+_SKU_IGNORE = {"FLOW_FREE", "POWER_BI_STANDARD", "TEAMS_EXPLORATORY", "WINDOWS_STORE", "DEVELOPERPACK_E5"}
+
+_HIGH_RISK_ROLES = {
+    "Global Administrator", "Privileged Role Administrator",
+    "Privileged Authentication Administrator", "Security Administrator",
+}
+
+_COMPLIANCE_LABEL = {
+    "compliant": "Godkänd", "noncompliant": "Ej godkänd",
+    "unknown": "Okänd", "notApplicable": "Ej tillämplig",
+    "inGracePeriod": "Respitperiod", "configManager": "Config Manager",
+}
+
+
+def _build_licenses(raw: dict) -> tuple[list[dict], dict[str, str]]:
+    sku_id_map: dict[str, str] = {}
+    licenses: list[dict] = []
+    for s in (raw.get("value") or []):
+        part = s.get("skuPartNumber", "")
+        sku_id = s.get("skuId", "")
+        friendly = _friendly_sku(part)
+        if sku_id:
+            sku_id_map[sku_id] = friendly
+        if part in _SKU_IGNORE or s.get("capabilityStatus") != "Enabled":
+            continue
+        licenses.append({
+            "name": friendly,
+            "sku": part,
+            "sku_id": sku_id,
+            "total": s.get("prepaidUnits", {}).get("enabled", 0),
+            "assigned": s.get("consumedUnits", 0),
+        })
+    return licenses, sku_id_map
+
+
+def _build_users(raw: dict, sku_id_map: dict[str, str]) -> tuple[list[dict], int, int]:
+    users = raw.get("value") or []
+    total_users = raw.get("@odata.count") or len(users)
+    enabled_users = sum(1 for u in users if u.get("accountEnabled"))
+    user_list = [
+        {
+            "name": u.get("displayName") or u.get("userPrincipalName", ""),
+            "email": u.get("mail") or u.get("userPrincipalName", ""),
+            "title": u.get("jobTitle") or "",
+            "enabled": u.get("accountEnabled", False),
+            "licenses": [
+                sku_id_map.get(lic.get("skuId", ""), lic.get("skuId", ""))
+                for lic in (u.get("assignedLicenses") or [])
+                if lic.get("skuId") in sku_id_map
+            ],
+        }
+        for u in users
+    ]
+    return user_list, total_users, enabled_users
+
+
+def _build_mfa_map(raw: dict) -> dict[str, dict]:
+    def _is_protected(u: dict) -> bool:
+        return bool(
+            u.get("isMfaRegistered") or u.get("isMfaCapable")
+            or u.get("isPasswordlessCapable") or u.get("methodsRegistered")
+        )
+
+    return {
+        u.get("userPrincipalName", "").lower(): {
+            "protected": _is_protected(u),
+            "methods": u.get("methodsRegistered") or [],
+        }
+        for u in (raw.get("value") or [])
+    }
+
+
+def _apply_mfa_to_users(user_list: list[dict], mfa_by_upn: dict[str, dict]) -> None:
+    if not mfa_by_upn:
+        return
+    for u in user_list:
+        info = mfa_by_upn.get(u["email"].lower())
+        if info:
+            u["mfa"] = info["protected"]
+            u["mfa_methods"] = info["methods"]
+
+
+def _count_mfa(user_list: list[dict], mfa_by_upn: dict[str, dict]) -> tuple[int, int]:
+    licensed_active_upns = {
+        u["email"].lower() for u in user_list if u["enabled"] and u["licenses"]
+    }
+    mfa_total = len(licensed_active_upns)
+    mfa_registered = sum(
+        1 for upn, info in mfa_by_upn.items()
+        if upn in licensed_active_upns and info["protected"]
+    )
+    return mfa_registered, mfa_total
+
+
+def _extract_secure_score(raw: dict) -> tuple:
+    scores = raw.get("value") or []
+    if not scores:
+        return None, None
+    sc = scores[0]
+    return sc.get("currentScore"), sc.get("maxScore")
+
+
+def _build_admin_roles(raw: dict) -> list[dict]:
+    role_map: dict[str, list[str]] = {}
+    for assignment in (raw.get("value") or []):
+        rd = assignment.get("roleDefinition") or {}
+        role_name = rd.get("displayName", "")
+        principal = assignment.get("principal") or {}
+        member_name = principal.get("displayName") or principal.get("userPrincipalName", "")
+        if role_name and member_name:
+            role_map.setdefault(role_name, []).append(member_name)
+    return [
+        {"role": role, "members": members, "high_risk": role in _HIGH_RISK_ROLES}
+        for role, members in sorted(role_map.items())
+        if members
+    ]
+
+
+def _build_inactive_users(user_list: list[dict], users_raw: dict) -> list[dict]:
+    now_utc = datetime.now(timezone.utc)
+    raw_users = users_raw.get("value") or []
+    sign_in_by_email = {
+        (u.get("mail") or u.get("userPrincipalName", "")).lower(): u.get("signInActivity")
+        for u in raw_users
+    }
+    inactive: list[dict] = []
+    for u in user_list:
+        if not u["enabled"] or not u["licenses"]:
+            continue
+        sign_in = sign_in_by_email.get(u["email"].lower())
+        if sign_in is None:
+            continue
+        last_dt_str = sign_in.get("lastSignInDateTime") if sign_in else None
+        days: int | None = None
+        if last_dt_str:
+            try:
+                last_dt = datetime.fromisoformat(last_dt_str.replace("Z", "+00:00"))
+                days = (now_utc - last_dt).days
+            except Exception:
+                pass
+        if days is None or days > 30:
+            inactive.append({
+                "name": u["name"],
+                "email": u["email"],
+                "licenses": u["licenses"],
+                "last_signin_days": days,
+                "never_signed_in": last_dt_str is None,
+            })
+    return inactive
+
+
+def _build_onedrive(csv_text: str) -> tuple[list[dict], float]:
+    if not csv_text:
+        return [], 0.0
+    users: list[dict] = []
+    total_gb = 0.0
+    for row in _parse_graph_report_csv(csv_text):
+        if row.get("Is Deleted", "").lower() == "true":
+            continue
+        used = _bytes_to_gb(row.get("Storage Used (Byte)", 0))
+        total_gb += used
+        users.append({
+            "name": row.get("Owner Display Name", "") or row.get("User Principal Name", ""),
+            "email": row.get("User Principal Name", ""),
+            "used_gb": used,
+            "last_activity": row.get("Last Activity Date", "") or None,
+        })
+    users.sort(key=lambda x: x["used_gb"], reverse=True)
+    return users, round(total_gb, 2)
+
+
+def _build_sharepoint(csv_text: str) -> tuple[list[dict], float]:
+    if not csv_text:
+        return [], 0.0
+    sites: list[dict] = []
+    total_gb = 0.0
+    for row in _parse_graph_report_csv(csv_text):
+        if row.get("Is Deleted", "").lower() == "true":
+            continue
+        used = _bytes_to_gb(row.get("Storage Used (Byte)", 0))
+        total_gb += used
+        url = row.get("Site URL", "")
+        name = url.rstrip("/").split("/")[-1] or url
+        sites.append({
+            "name": name,
+            "url": url,
+            "owner": row.get("Owner Display Name", ""),
+            "used_gb": used,
+            "last_activity": row.get("Last Activity Date", "") or None,
+        })
+    sites.sort(key=lambda x: x["used_gb"], reverse=True)
+    return sites, round(total_gb, 2)
+
+
+def _build_intune_devices(raw: dict) -> list[dict]:
+    now_utc = datetime.now(timezone.utc)
+    devices: list[dict] = []
+    for d in (raw.get("value") or []):
+        last_sync = d.get("lastSyncDateTime", "")
+        sync_days: int | None = None
+        try:
+            sync_dt = datetime.fromisoformat(last_sync.replace("Z", "+00:00"))
+            sync_days = (now_utc - sync_dt).days
+        except Exception:
+            pass
+        compliance = d.get("complianceState", "unknown")
+        os_name = d.get("operatingSystem", "")
+        os_version = d.get("osVersion", "")
+        if os_name.lower() == "windows":
+            os_name = _windows_version(os_version)
+        devices.append({
+            "name": d.get("deviceName", ""),
+            "user": d.get("userDisplayName", "") or d.get("userPrincipalName", ""),
+            "os": os_name,
+            "os_version": os_version,
+            "compliance": _COMPLIANCE_LABEL.get(compliance, compliance),
+            "compliance_key": compliance,
+            "last_sync_days": sync_days,
+        })
+    devices.sort(key=lambda x: (x["compliance_key"] != "compliant", x["name"]))
+    return devices
+
+
 def _windows_version(os_version: str) -> str:
     """Härleder Windows 10/11 och version från byggnumret som Intune returnerar."""
     try:
@@ -418,9 +446,9 @@ def _windows_version(os_version: str) -> str:
     return win_ver
 
 
-def _parse_csv(text: str) -> list[dict]:
-    text = text.lstrip('﻿')
-    return list(csv.DictReader(io.StringIO(text)))
+def _parse_graph_report_csv(text: str) -> list[dict]:
+    """Parsar Graph-rapport-CSV och hanterar UTF-8-BOM från Microsoft."""
+    return list(csv.DictReader(io.StringIO(text.lstrip('﻿'))))
 
 
 def _bytes_to_gb(value) -> float:

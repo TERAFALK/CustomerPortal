@@ -48,12 +48,6 @@ INTEGRATIONS: dict[str, IntegrationMeta] = {
         icon="ti-brand-windows",
         description="Licensöversikt, MFA-status och säkerhetspoäng",
     ),
-    "acronis": IntegrationMeta(
-        key="acronis",
-        display_name="Acronis Backup",
-        icon="ti-shield",
-        description="Backup-status och skyddade enheter",
-    ),
 }
 
 
@@ -65,7 +59,4 @@ def get_client(integration_type: str) -> IntegrationClient:
     if integration_type == "microsoft":
         from app.integrations.microsoft.adapter import MicrosoftIntegration
         return MicrosoftIntegration()
-    if integration_type == "acronis":
-        from app.integrations.acronis.adapter import AcronisIntegration
-        return AcronisIntegration()
     raise ValueError(f"Okänd integrationstyp: {integration_type}")

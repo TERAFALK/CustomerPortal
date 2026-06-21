@@ -8,6 +8,8 @@ Flöde:
   4. Denna endpoint sparar tenant_id, markerar som verifierad, redirectar tillbaka till appen
 """
 
+import html as html_lib
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
@@ -86,6 +88,6 @@ async def microsoft_consent_callback(
 
     return HTMLResponse(_page(
         "Microsoft 365 kopplat!",
-        f"Tenant <strong>{tenant}</strong> är nu kopplat till kunden. Du kan stänga den här fliken.",
+        f"Tenant <strong>{html_lib.escape(tenant)}</strong> är nu kopplat till kunden. Du kan stänga den här fliken.",
         ok=True,
     ))

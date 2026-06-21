@@ -2,8 +2,11 @@
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from app.core.config import settings
 from app.db.database import init_db
@@ -11,6 +14,8 @@ from app.db.seed import seed_first_admin
 from app.api import auth, customers, reports, integrations, scheduler as scheduler_router, users, ms_auth, admin_settings
 from app.core import app_settings
 from app.core.scheduler import start_scheduler
+
+limiter = Limiter(key_func=get_remote_address)
 
 
 @asynccontextmanager
@@ -28,12 +33,17 @@ app = FastAPI(
     title="Insight",
     version="1.0.0",
     lifespan=lifespan,
+    docs_url="/api/docs",
+    openapi_url="/api/openapi.json",
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Begränsa till din domän i produktion, t.ex. ["https://portal.terafalk.com"]
-    allow_credentials=False,  # Vi använder Bearer-token i header, inte cookies — credentials behövs inte
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

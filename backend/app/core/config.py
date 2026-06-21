@@ -9,8 +9,12 @@ class Settings(BaseSettings):
 
     # App-säkerhet
     SECRET_KEY: str = "dev-secret-byt-i-produktion"
-    ENCRYPTION_KEY: str = "dev-enc-key-byt-i-produktion-32b"
+    # Generera med: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    ENCRYPTION_KEY: str = ""
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
+
+    # Tillåtna CORS-origins (kommaseparerade i .env, t.ex. "https://portal.terafalk.com")
+    ALLOWED_ORIGINS: list[str] = ["http://localhost", "http://localhost:3000"]
 
     # Microsoft Graph — TERAFALK:s avsändar-app (single-tenant, för e-post)
     GRAPH_TENANT_ID: str = ""

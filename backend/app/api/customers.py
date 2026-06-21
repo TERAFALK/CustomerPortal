@@ -46,10 +46,12 @@ class CredentialUpsert(BaseModel):
 
 @router.get("")
 async def list_customers(
+    skip: int = 0,
+    limit: int = 100,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(current_user),
 ):
-    q = select(Customer).where(Customer.is_active == True).options(selectinload(Customer.credentials)).order_by(Customer.name)
+    q = select(Customer).where(Customer.is_active == True).options(selectinload(Customer.credentials)).order_by(Customer.name).offset(skip).limit(limit)
     if user.role == "customer":
         q = q.where(Customer.id == user.customer_id)
     rows = await db.scalars(q)

@@ -1243,10 +1243,10 @@ function renderDashboardCards(customers) {
   el.innerHTML = customers.map(c => {
     const verified = c.integrations_verified || [];
     const configured = c.integrations_configured || [];
-    const allKnown = ['unifi', 'microsoft', 'acronis'];
+    const allKnown = ['unifi', 'microsoft'];
     const chips = allKnown.map(k => {
-      const icon = { unifi: 'ti-router', microsoft: 'ti-brand-windows', acronis: 'ti-shield' }[k];
-      const label = { unifi: 'UniFi', microsoft: 'M365', acronis: 'Acronis' }[k];
+      const icon = { unifi: 'ti-router', microsoft: 'ti-brand-windows' }[k];
+      const label = { unifi: 'UniFi', microsoft: 'M365' }[k];
       const on = verified.includes(k);
       return `<span class="chip ${on ? 'ch-on' : 'ch-off'}"><i class="ti ${icon}"></i> ${label}</span>`;
     }).join('');
@@ -1282,10 +1282,10 @@ async function loadCustomersList() {
     }
     tbody.innerHTML = customers.map(c => {
       const verified = c.integrations_verified || [];
-      const allKnown = ['unifi', 'microsoft', 'acronis'];
+      const allKnown = ['unifi', 'microsoft'];
       const chips = allKnown.filter(k => verified.includes(k)).map(k => {
-        const icon = { unifi: 'ti-router', microsoft: 'ti-brand-windows', acronis: 'ti-shield' }[k];
-        const label = { unifi: 'UniFi', microsoft: 'M365', acronis: 'Acronis' }[k];
+        const icon = { unifi: 'ti-router', microsoft: 'ti-brand-windows' }[k];
+        const label = { unifi: 'UniFi', microsoft: 'M365' }[k];
         return `<span class="chip ch-on" style="font-size:10px"><i class="ti ${icon}"></i> ${label}</span>`;
       }).join(' ') || `<span class="b b-muted">Ingen</span>`;
       const statusBadge = verified.length > 0 ? `<span class="b b-ok">Aktiv</span>` : `<span class="b b-warn">Ej kopplad</span>`;
@@ -1851,7 +1851,6 @@ function renderUnifiData(data) {
 
 const INTEGRATION_DEFS = [
   { key: 'unifi', name: 'UniFi', icon: 'ti-router', fields: [{ id: 'api_key', label: 'API-nyckel (kundens Fabric)', type: 'password', placeholder: 'Från kundens Fabric → Settings → API Keys' }] },
-  { key: 'acronis', name: 'Acronis Backup', icon: 'ti-shield', fields: [{ id: 'api_key', label: 'API-nyckel', type: 'password', placeholder: 'Acronis API-nyckel' }] },
 ];
 
 async function loadIntegrationsView(customerId) {

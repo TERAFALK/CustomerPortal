@@ -1,13 +1,13 @@
 """
 Säkerhetsfunktioner: JWT-tokens och symmetrisk kryptering av API-nycklar.
-API-nycklar (UniFi, Graph, Acronis, Cloudfactory) krypteras med AES-128-CBC
+API-nycklar (UniFi, Graph, Acronis, Cloudfactory) krypteras med Fernet AES-128
 via cryptography-biblioteket innan de lagras i databasen.
 """
 
-import base64
 from datetime import datetime, timedelta, timezone
 
 from cryptography.fernet import Fernet
+from fastapi import HTTPException, status
 from jose import jwt
 from passlib.context import CryptContext
 
@@ -15,10 +15,18 @@ from app.core.config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Fernet kräver en 32-byte URL-safe base64-kodad nyckel
+_BCRYPT_MAX_BYTES = 72
+
+
 def _fernet() -> Fernet:
-    key_bytes = settings.ENCRYPTION_KEY.encode()[:32].ljust(32, b"0")
-    return Fernet(base64.urlsafe_b64encode(key_bytes))
+    """
+    Läser ENCRYPTION_KEY rakt av — den måste vara en giltig Fernet-nyckel
+    (base64url, 32 bytes). Generera med:
+      python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    """
+    if not settings.ENCRYPTION_KEY:
+        raise RuntimeError("ENCRYPTION_KEY saknas i miljövariablerna")
+    return Fernet(settings.ENCRYPTION_KEY.encode())
 
 
 def encrypt(plaintext: str) -> str:
@@ -29,25 +37,22 @@ def decrypt(ciphertext: str) -> str:
     return _fernet().decrypt(ciphertext.encode()).decode()
 
 
+def _validate_password_length(password: str) -> None:
+    if len(password.encode("utf-8")) > _BCRYPT_MAX_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Lösenordet är för långt — max {_BCRYPT_MAX_BYTES} bytes (UTF-8).",
+        )
+
+
 def hash_password(password: str) -> str:
-    return pwd_context.hash(_truncate_for_bcrypt(password))
+    _validate_password_length(password)
+    return pwd_context.hash(password)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(_truncate_for_bcrypt(plain), hashed)
-
-
-def _truncate_for_bcrypt(password: str) -> str:
-    """
-    bcrypt hanterar max 72 bytes. Ett långt lösenord (t.ex. en lång
-    passphrase i FIRST_ADMIN_PASSWORD) ska trunkeras konsekvent vid
-    hashning OCH verifiering — annars kraschar appen vid uppstart
-    istället för att bara klippa lösenordet.
-    """
-    encoded = password.encode("utf-8")
-    if len(encoded) <= 72:
-        return password
-    return encoded[:72].decode("utf-8", errors="ignore")
+    _validate_password_length(plain)
+    return pwd_context.verify(plain, hashed)
 
 
 def create_access_token(subject: str) -> str:

@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 from sqlalchemy import select
@@ -5,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.auth import current_user, require_admin
+from app.core.config import settings
 from app.db.database import get_db
 from app.db.models import Customer, Report, User
 
@@ -13,10 +16,12 @@ router = APIRouter()
 
 @router.get("")
 async def list_reports(
+    skip: int = 0,
+    limit: int = 50,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(current_user),
 ):
-    q = select(Report).order_by(Report.created_at.desc()).limit(50)
+    q = select(Report).order_by(Report.created_at.desc()).offset(skip).limit(limit)
     if user.role == "customer":
         q = q.where(Report.customer_id == user.customer_id)
     rows = await db.scalars(q)
@@ -109,4 +114,8 @@ async def download_pdf(
     report = await db.get(Report, report_id)
     if not report or not report.pdf_path:
         raise HTTPException(404, "Rapport-PDF hittades inte")
-    return FileResponse(report.pdf_path, media_type="application/pdf")
+    safe_root = os.path.realpath(settings.REPORTS_OUTPUT_DIR)
+    pdf_abs = os.path.realpath(report.pdf_path)
+    if not pdf_abs.startswith(safe_root + os.sep) and pdf_abs != safe_root:
+        raise HTTPException(403, "Åtkomst nekad")
+    return FileResponse(pdf_abs, media_type="application/pdf")
