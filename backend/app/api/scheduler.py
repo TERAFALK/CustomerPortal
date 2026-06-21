@@ -35,10 +35,7 @@ async def update_schedule(body: ScheduleUpdate):
         raise HTTPException(400, "Timme måste vara mellan 0 och 23")
     if not (0 <= body.minute <= 59):
         raise HTTPException(400, "Minut måste vara mellan 0 och 59")
-    from app.core.scheduler import reschedule
+    from app.core.scheduler import reschedule, save_schedule_to_db
     reschedule(body.day, body.hour, body.minute)
-    # Uppdatera settings i minnet så att /status återspeglar ny tid direkt
-    settings.REPORT_SCHEDULE_DAY = body.day
-    settings.REPORT_SCHEDULE_HOUR = body.hour
-    settings.REPORT_SCHEDULE_MINUTE = body.minute
+    await save_schedule_to_db(body.day, body.hour, body.minute)
     return {"status": "ok", "day": body.day, "hour": body.hour, "minute": body.minute}

@@ -424,10 +424,9 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
       <div class="card" style="margin-bottom:22px">
         <div class="ch"><i class="ti ti-calendar-event" style="color:var(--blue);font-size:17px"></i><span class="cht" style="margin-left:8px;flex:1">Schemaläggning</span><span class="b b-ok"><i class="ti ti-circle-check" style="font-size:12px"></i> Aktiv</span></div>
         <div class="cb">
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:16px">
             <div class="mbox"><div class="mv" id="sched-next" style="font-size:16px">—</div><div class="ml">Nästa körning</div></div>
             <div class="mbox"><div class="mv" style="font-size:16px">Månadsvis</div><div class="ml">Frekvens</div></div>
-            <div class="mbox"><div class="mv" style="font-size:16px" id="sched-sender">—</div><div class="ml">Avsändare</div></div>
           </div>
           <div class="alert al-info" style="margin:0"><i class="ti ti-info-circle"></i><span>Rapporter skickas automatiskt den 1:a varje månad kl. 08:00. För att skicka manuellt, öppna en kund och klicka <strong>Generera rapport</strong>.</span></div>
         </div>
@@ -563,10 +562,6 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
       <div class="ph"><div class="ph-title">Inställningar</div></div>
       <div id="settings-error" class="alert al-e" style="display:none;max-width:560px;margin-bottom:14px"><i class="ti ti-alert-circle"></i><span id="settings-error-msg"></span></div>
       <div class="fw" style="max-width:560px">
-        <div class="fsec">Microsoft Graph — E-postutskick</div>
-        <div class="fr"><label class="fl">Avsändaradress</label><input class="fi" id="s-sender" readonly></div>
-        <div class="fh" style="margin-bottom:16px">Graph-credentials (Tenant ID, Client ID, Secret) konfigureras via miljövariabler i <code>.env</code>.</div>
-        <hr class="fdiv">
         <div class="fsec">Rapportschema</div>
         <div class="alert al-info" style="margin-bottom:16px"><i class="ti ti-info-circle"></i><span id="s-next-run">Laddar nästa körning...</span></div>
         <div class="f2">
@@ -583,11 +578,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
           </div>
         </div>
         <div class="fh">Tidszon: Europe/Stockholm. Ändringar gäller direkt utan omstart.</div>
-        <hr class="fdiv">
-        <div class="fsec">Säkerhet</div>
-        <div class="fr"><label class="fl">Krypteringsnyckel</label><input class="fi" type="password" value="••••••••••••••••••••••••••••••••" readonly><div class="fh">Sätts via <code>ENCRYPTION_KEY</code> i .env — ändra aldrig efter att kunder lagts in.</div></div>
-        <div class="fr"><label class="fl">JWT-tokens giltighetstid</label><input class="fi" type="text" id="s-token-expire" readonly><div class="fh">Sätts via <code>ACCESS_TOKEN_EXPIRE_MINUTES</code> i .env.</div></div>
-        <button class="btn btn-p" id="s-save-btn" onclick="saveSchedule()"><i class="ti ti-check"></i> Spara schema</button>
+        <button class="btn btn-p" id="s-save-btn" onclick="saveSchedule()" style="margin-top:16px"><i class="ti ti-check"></i> Spara schema</button>
       </div>
     </div>
 
@@ -1356,7 +1347,7 @@ async function loadReports() {
       } else {
         document.getElementById('sched-next').textContent = '1:a varje månad, 08:00';
       }
-      if (sched && sched.sender) document.getElementById('sched-sender').textContent = sched.sender;
+
     } catch (_) {
       document.getElementById('sched-next').textContent = '1:a varje månad, 08:00';
     }
@@ -1707,13 +1698,9 @@ async function loadSettings() {
     const dayEl = document.getElementById('s-day');
     const hourEl = document.getElementById('s-hour');
     const minEl = document.getElementById('s-minute');
-    const senderEl = document.getElementById('s-sender');
-    const tokenEl = document.getElementById('s-token-expire');
     if (dayEl) dayEl.value = s.day ?? 1;
     if (hourEl) hourEl.value = s.hour ?? 8;
     if (minEl) minEl.value = s.minute ?? 0;
-    if (senderEl) senderEl.value = s.sender || '';
-    if (tokenEl) tokenEl.value = '8 timmar (480 minuter)';
     const nextEl = document.getElementById('s-next-run');
     if (nextEl && s.next_run) {
       nextEl.textContent = 'Nästa körning: ' + new Date(s.next_run).toLocaleString('sv-SE', { dateStyle: 'long', timeStyle: 'short' });

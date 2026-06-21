@@ -1,6 +1,7 @@
 """
 Schemaläggare för automatiska månadsrapporter.
 APScheduler kör i bakgrunden inuti FastAPI-processen.
+Schema persisteras i DB och laddas vid uppstart.
 """
 
 import logging
@@ -12,6 +13,8 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 _scheduler = AsyncIOScheduler()
+
+_SETTING_KEYS = ("report_schedule_day", "report_schedule_hour", "report_schedule_minute")
 
 
 def start_scheduler() -> None:
@@ -59,4 +62,45 @@ def reschedule(day: int, hour: int, minute: int) -> None:
             timezone="Europe/Stockholm",
         )
     )
+    settings.REPORT_SCHEDULE_DAY = day
+    settings.REPORT_SCHEDULE_HOUR = hour
+    settings.REPORT_SCHEDULE_MINUTE = minute
     logger.info("Schema uppdaterat — dag %s kl %02d:%02d", day, hour, minute)
+
+
+async def save_schedule_to_db(day: int, hour: int, minute: int) -> None:
+    from sqlalchemy import select
+    from app.db.database import AsyncSessionLocal
+    from app.db.models import SystemSetting
+
+    async with AsyncSessionLocal() as db:
+        for key, value in [
+            ("report_schedule_day", str(day)),
+            ("report_schedule_hour", str(hour)),
+            ("report_schedule_minute", str(minute)),
+        ]:
+            existing = await db.get(SystemSetting, key)
+            if existing:
+                existing.value = value
+            else:
+                db.add(SystemSetting(key=key, value=value))
+        await db.commit()
+
+
+async def reschedule_from_db() -> None:
+    """Laddas vid uppstart — applicerar sparat schema från DB om det finns."""
+    from app.db.database import AsyncSessionLocal
+    from app.db.models import SystemSetting
+
+    async with AsyncSessionLocal() as db:
+        rows = {
+            key: await db.get(SystemSetting, key)
+            for key in _SETTING_KEYS
+        }
+
+    if all(rows[k] is not None for k in _SETTING_KEYS):
+        day = int(rows["report_schedule_day"].value)
+        hour = int(rows["report_schedule_hour"].value)
+        minute = int(rows["report_schedule_minute"].value)
+        reschedule(day, hour, minute)
+        logger.info("Schema laddat från DB — dag %s kl %02d:%02d", day, hour, minute)

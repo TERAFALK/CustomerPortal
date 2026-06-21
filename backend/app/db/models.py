@@ -100,6 +100,15 @@ class IntegrationCredential(Base):
     customer: Mapped["Customer"] = relationship(back_populates="credentials")
 
 
+class SystemSetting(Base):
+    """Nyckel-värde-tabell för persistenta systeminställningar (t.ex. rapportschema)."""
+
+    __tablename__ = "system_settings"
+
+    key: Mapped[str] = mapped_column(String, primary_key=True)
+    value: Mapped[str] = mapped_column(String, nullable=False)
+
+
 class Report(Base):
     """En genererad och skickad månadsrapport per kund."""
 
