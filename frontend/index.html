@@ -376,8 +376,18 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
   /* Licenser i licenskortet → behåll rad-layout, ta bort min-width på baren */
   .ms-lic-row > div[style*="min-width"] { min-width:100px!important }
 
-  /* Licenschips i användarraden → höger-justerade på mobil */
+  /* Chips → höger-justerade på mobil */
   .lic-chips { display:flex;flex-wrap:wrap;justify-content:flex-end;gap:2px }
+  .int-chips { display:flex;flex-wrap:wrap;justify-content:flex-end;gap:3px }
+
+  /* Kundlistan: varje rad klickbar som ett kort */
+  #customers-tbody tr { cursor:pointer }
+  #customers-tbody td[data-label="Kund"] { font-size:14px;font-weight:600 }
+  #customers-tbody td[data-label="Kund"]:before { display:none }
+
+  /* Göm ort + e-post på mobil (för smal) */
+  #customers-tbody td[data-label="Ort"],
+  #customers-tbody td[data-label="E-post"] { display:none }
 
   /* Stats */
   .stats { grid-template-columns:repeat(2,1fr) }
@@ -451,6 +461,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
 .ms-score-val{font-size:28px;font-weight:700;color:var(--text)}
 .ms-score-max{font-size:12px;color:var(--muted)}
 .lic-chips{display:contents}
+.int-chips{display:contents}
 
 /* ── Toast ── */
 .toast{position:fixed;bottom:24px;right:24px;background:var(--dark);color:#fff;padding:12px 18px;border-radius:var(--rl);font-size:13px;font-weight:500;z-index:9999;display:flex;align-items:center;gap:9px;transform:translateY(60px);opacity:0;transition:all 0.25s cubic-bezier(.4,0,.2,1);pointer-events:none;max-width:400px;box-shadow:0 8px 28px rgba(16,24,40,0.2)}
@@ -1279,7 +1290,7 @@ async function loadCustomersList() {
           <td data-label="Kund"><div class="dn">${escapeHtml(c.name)}</div><div class="ds">${escapeHtml(c.contact_name || '')}</div></td>
           <td data-label="Ort">${escapeHtml(c.city || '—')}</td>
           <td data-label="E-post" style="color:var(--muted);font-size:12px">${escapeHtml(c.contact_email || '—')}</td>
-          <td data-label="Integrationer" style="white-space:nowrap">${chips}</td>
+          <td data-label="Integrationer"><div class="int-chips">${chips}</div></td>
           <td data-label="Status">${statusBadge}</td>
         </tr>`;
     }).join('');
