@@ -41,9 +41,6 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
 .login-tagline{margin-top:auto;color:#fff}
 .login-tagline h2{font-size:26px;font-weight:700;line-height:1.25;letter-spacing:-0.02em;margin-bottom:12px}
 .login-tagline p{font-size:13px;color:rgba(255,255,255,0.65);line-height:1.6;max-width:300px}
-.login-dots{display:flex;gap:8px;margin-top:40px}
-.login-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.25)}
-.login-dot.active{background:#fff;width:20px;border-radius:4px}
 .login-panel-right{
   flex:1;display:flex;align-items:center;justify-content:center;
   background:#F6F7F9;
@@ -55,7 +52,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
 
 /* ── Layout ── */
 .app{display:flex;min-height:100vh}
-.sidebar{width:228px;background:var(--sb-bg);border-right:1px solid var(--sb-border);display:flex;flex-direction:column;flex-shrink:0}
+.sidebar{width:228px;background:var(--sb-bg);border-right:1px solid var(--sb-border);display:flex;flex-direction:column;flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto}
 .sb-logo{padding:22px 22px 20px}
 .sb-section{font-size:10px;font-weight:700;letter-spacing:0.11em;text-transform:uppercase;color:var(--muted);padding:18px 22px 8px}
 .nav{display:flex;align-items:center;gap:11px;margin:1px 12px;padding:9px 12px;color:var(--sub);cursor:pointer;font-size:13px;font-weight:500;transition:all 0.12s;user-select:none;border-radius:var(--r)}
@@ -307,15 +304,10 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
       <div class="login-brand-sub">Insight</div>
     </div>
     <div class="login-tagline">
-      <h2>Ditt nätverk.<br>Din kontroll.</h2>
+      <h2>Din IT.<br>Din insyn.</h2>
       <p>Realtidsövervakning, månadsrapporter och samlad IT-status — allt på ett ställe.</p>
-      <div class="login-dots">
-        <div class="login-dot active"></div>
-        <div class="login-dot"></div>
-        <div class="login-dot"></div>
-      </div>
     </div>
-    <div style="font-size:11px;color:rgba(255,255,255,0.35)">© 2026 TERAFALK AB</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.35)">© <span id="login-year"></span> TERAFALK AB</div>
   </div>
 
   <!-- Höger panel: formulär -->
@@ -870,6 +862,8 @@ function doLogout() {
 }
 
 if (authToken) { showApp(); }
+
+document.getElementById('login-year').textContent = new Date().getFullYear();
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') doLogin();
