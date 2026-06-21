@@ -261,6 +261,67 @@ async def verify_credential(
     return {"status": "ok" if ok else "error", "detail": message}
 
 
+@router.get("/{customer_id}/integrations/microsoft/debug-skus")
+async def microsoft_debug_skus(
+    customer_id: str,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Returnerar råa SKU-koder och MFA-status direkt från Microsoft Graph — för felsökning av mappningar."""
+    import httpx
+    from app.core.security import decrypt
+
+    cred = await db.scalar(
+        select(IntegrationCredential).where(
+            IntegrationCredential.customer_id == customer_id,
+            IntegrationCredential.integration_type == "microsoft",
+        )
+    )
+    if not cred:
+        raise HTTPException(400, "Ingen Microsoft-integration konfigurerad")
+
+    tenant_id = decrypt(cred.credentials_encrypted).get("tenant_id", "")
+    client_id = app_settings.get("ms_app_client_id")
+    client_secret = app_settings.get("ms_app_client_secret")
+
+    async with httpx.AsyncClient(timeout=20) as http:
+        # Token
+        r = await http.post(
+            f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
+            data={"grant_type": "client_credentials", "client_id": client_id,
+                  "client_secret": client_secret, "scope": "https://graph.microsoft.com/.default"},
+        )
+        r.raise_for_status()
+        token = r.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}", "ConsistencyLevel": "eventual"}
+
+        # Raw SKUs
+        skus_r = await http.get("https://graph.microsoft.com/v1.0/subscribedSkus", headers=headers)
+        skus_r.raise_for_status()
+        raw_skus = [
+            {"skuId": s.get("skuId"), "skuPartNumber": s.get("skuPartNumber"),
+             "capabilityStatus": s.get("capabilityStatus"),
+             "total": s.get("prepaidUnits", {}).get("enabled"), "assigned": s.get("consumedUnits")}
+            for s in skus_r.json().get("value", [])
+        ]
+
+        # MFA test
+        mfa_result = {"status": "ok", "count": 0, "error": None}
+        try:
+            mfa_r = await http.get(
+                "https://graph.microsoft.com/v1.0/reports/authenticationMethods/userRegistrationDetails",
+                headers=headers, params={"$top": "5"},
+            )
+            mfa_r.raise_for_status()
+            mfa_result["count"] = len(mfa_r.json().get("value", []))
+            mfa_result["sample"] = mfa_r.json().get("value", [])[:2]
+        except Exception as e:
+            mfa_result["status"] = "error"
+            mfa_result["error"] = str(e)
+
+    return {"tenant_id": tenant_id, "skus": raw_skus, "mfa": mfa_result}
+
+
 @router.get("/{customer_id}/integrations/microsoft/consent-url")
 async def microsoft_consent_url(
     customer_id: str,

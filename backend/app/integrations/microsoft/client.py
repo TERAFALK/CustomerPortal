@@ -53,6 +53,10 @@ class GraphClient:
                 self._fetch_secure_score(client),
             )
 
+        # Logga råa SKU-koder för att identifiera saknade mappningar
+        for s in (licenses_raw.get("value") or []):
+            logger.info("SKU: %s | displayName från API saknas, skuPartNumber=%s", s.get("skuId",""), s.get("skuPartNumber",""))
+
         # Licenser — bygg skuId→{name,sku} karta för användarmappning
         sku_ignore = {
             "FLOW_FREE", "POWER_BI_STANDARD", "TEAMS_EXPLORATORY",
@@ -147,9 +151,11 @@ class GraphClient:
 
     async def _fetch_mfa(self, client):
         try:
-            return await self._get(client, "/reports/authenticationMethods/userRegistrationDetails", params={"$top": "999"})
+            result = await self._get(client, "/reports/authenticationMethods/userRegistrationDetails", params={"$top": "999"})
+            logger.info("MFA API svarade med %d poster", len(result.get("value") or []))
+            return result
         except Exception as e:
-            logger.warning("MFA-data ej tillgänglig: %s", e)
+            logger.warning("MFA-data ej tillgänglig (kräver UserAuthenticationMethod.Read.All): %s", e)
             return {"value": []}
 
     async def _fetch_secure_score(self, client):
@@ -173,12 +179,12 @@ _SKU_NAMES = {
     "SMB_BUSINESS_PREMIUM": "Microsoft 365 Business Premium",
     "SMB_BUSINESS": "Microsoft 365 Apps for Business",
     "SMB_BUSINESS_ESSENTIALS": "Microsoft 365 Business Basic",
-    "SPB": "Microsoft 365 Business Standard",
+    "SPB": "Microsoft 365 Business Premium",
     "MICROSOFT_BUSINESS_CENTER": "Microsoft 365 Business Center",
     # Microsoft 365 Enterprise
     "SPE_E3": "Microsoft 365 E3",
     "SPE_E5": "Microsoft 365 E5",
-    "SPE_F1": "Microsoft 365 F1",
+    "SPE_F1": "Microsoft 365 F3",
     "SPE_E3_USGOV_DOD": "Microsoft 365 E3 (Gov)",
     "SPE_E3_USGOV_GCCHIGH": "Microsoft 365 E3 (Gov High)",
     # Office 365
