@@ -57,6 +57,7 @@ class WanStatus:
     uptime_percentage: float | None
     has_issues: bool
     issue_count: int
+    is_up: bool = True  # True om WAN har extern IP just nu (= uppkopplad)
 
 
 @dataclass
@@ -215,15 +216,17 @@ class UnifiClient:
             # ser ut att vara aktiv.
             wan_isp = wan_data.get("ispInfo") or {}
             issues = wan_data.get("wanIssues") or []
+            external_ip = wan_data.get("externalIp")
             wans.append(
                 WanStatus(
                     name=wan_name,
-                    external_ip=wan_data.get("externalIp"),
+                    external_ip=external_ip,
                     isp_name=wan_isp.get("name"),
                     isp_organization=wan_isp.get("organization"),
                     uptime_percentage=wan_data.get("wanUptime"),
                     has_issues=len(issues) > 0,
                     issue_count=sum(i.get("count", 0) for i in issues),
+                    is_up=bool(external_ip),
                 )
             )
 

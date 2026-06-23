@@ -204,6 +204,7 @@ class UnifiIntegration:
                         "external_ip": w.external_ip,
                         "has_issues": w.has_issues,
                         "issue_count": w.issue_count,
+                        "is_up": w.is_up,
                     }
                     for w in active_wans
                 ],

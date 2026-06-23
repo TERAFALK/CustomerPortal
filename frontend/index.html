@@ -2103,7 +2103,7 @@ function renderUnifiData(data) {
 
   // ── Hero-statistik (summerat över alla hosts) ──
   const allWans = hosts.flatMap(h => h.wans || []);
-  const onlineWans = allWans.filter(w => (w.uptime_percentage ?? 0) >= 99.9).length;
+  const onlineWans = allWans.filter(w => w.is_up !== false).length;
   const heroEl = document.getElementById('cd-hero-stats');
   heroEl.innerHTML = `
     ${allWans.length ? `<div><div class="hs-v">${onlineWans}/${allWans.length}</div><div class="hs-l">WAN online</div></div>` : ''}
@@ -2140,8 +2140,8 @@ function renderUnifiData(data) {
     const wanRows = wans.map(w => `
       <div class="wan-r">
         <span class="wan-nm">${escapeHtml(w.name)}</span>
-        <span class="b ${(w.uptime_percentage ?? 0) >= 99.9 ? 'b-ok' : 'b-err'}" style="margin-right:8px;flex-shrink:0">${(w.uptime_percentage ?? 0) >= 99.9 ? 'Online' : 'Nere'}</span>
-        <div class="ub-w"><div class="ub-bg"><div class="ub ${(w.uptime_percentage ?? 0) >= 99.9 ? 'ub-ok' : 'ub-dn'}" style="width:${Math.min(w.uptime_percentage || 0, 100)}%"></div></div>
+        <span class="b ${w.is_up !== false ? 'b-ok' : 'b-err'}" style="margin-right:8px;flex-shrink:0">${w.is_up !== false ? 'Online' : 'Nere'}</span>
+        <div class="ub-w"><div class="ub-bg"><div class="ub ${w.is_up !== false ? 'ub-ok' : 'ub-dn'}" style="width:${Math.min(w.uptime_percentage || 0, 100)}%"></div></div>
         <span style="font-size:12px;font-weight:700;width:38px;text-align:right">${(w.uptime_percentage ?? 0).toFixed(2)}%</span></div>
         ${w.isp_name ? `<span style="font-size:11px;color:var(--muted);flex-shrink:0;margin-left:6px">${escapeHtml(w.isp_name)}</span>` : ''}
       </div>
