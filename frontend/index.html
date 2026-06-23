@@ -503,6 +503,12 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
 .cd-tab-pane{display:none}
 .cd-tab-pane.active{display:block;animation:fade 0.18s ease}
 
+/* ── Inställningar: undermeny ── */
+.settings-subnav{display:flex;flex-direction:column;gap:2px;position:sticky;top:24px}
+.ssn-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:7px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;transition:background 0.15s,color 0.15s}
+.ssn-item:hover{background:var(--hover);color:var(--text)}
+.ssn-item.ssn-active{background:var(--blue);color:#fff}
+.ssn-item.ssn-active i{color:#fff}
 /* ── Fasindikator (horisontell timeline) ── */
 .phase-track{display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding:8px 0 16px;margin-bottom:4px}
 .phase-step{display:flex;flex-direction:column;align-items:center;flex:1;min-width:80px;position:relative}
@@ -1024,56 +1030,80 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
     <!-- ══ SETTINGS ══ -->
     <div class="view" id="v-settings">
       <div class="ph"><div class="ph-title">Inställningar</div></div>
-      <div id="settings-error" class="alert al-e" style="display:none;max-width:560px;margin-bottom:14px"><i class="ti ti-alert-circle"></i><span id="settings-error-msg"></span></div>
-      <div class="fw" style="max-width:560px">
-        <div class="fsec">E-postutskick (Microsoft Graph)</div>
-        <div class="f2">
-          <div class="fr" style="margin:0"><label class="fl">Tenant ID</label><input class="fi" id="s-graph-tenant-id" placeholder="TERAFALK:s tenant ID"></div>
-          <div class="fr" style="margin:0"><label class="fl">Client ID</label><input class="fi" id="s-graph-client-id" placeholder="App registration client ID"></div>
-        </div>
-        <div class="fr"><label class="fl">Client Secret</label><input class="fi" type="password" id="s-graph-client-secret" placeholder="Lämna tomt för att behålla befintligt"></div>
-        <div class="fr"><label class="fl">Avsändaradress</label><input class="fi" id="s-graph-sender" placeholder="noreply@terafalk.com"></div>
-        <hr class="fdiv">
-        <div class="fsec">Microsoft 365 kundintegration (multi-tenant)</div>
-        <div class="f2">
-          <div class="fr" style="margin:0"><label class="fl">Client ID</label><input class="fi" id="s-ms-client-id" placeholder="Multi-tenant app client ID"></div>
-          <div class="fr" style="margin:0"><label class="fl">Redirect URI</label><input class="fi" id="s-ms-redirect-uri" placeholder="https://insight.terafalk.com/api/auth/microsoft/callback"></div>
-        </div>
-        <div class="fr"><label class="fl">Client Secret</label><input class="fi" type="password" id="s-ms-client-secret" placeholder="Lämna tomt för att behålla befintligt"></div>
-        <button class="btn btn-p btn-sm" onclick="saveAppSettings()" style="margin-bottom:20px"><i class="ti ti-check"></i> Spara anslutningsinställningar</button>
-        <hr class="fdiv">
-        <div class="fsec">Rapportschema</div>
-        <div class="alert al-info" style="margin-bottom:16px"><i class="ti ti-info-circle"></i><span id="s-next-run">Laddar nästa körning...</span></div>
-        <div class="f2">
-          <div class="fr" style="margin:0">
-            <label class="fl">Dag i månaden <span style="font-weight:400;color:var(--muted)">(1–28)</span></label>
-            <input class="fi" id="s-day" type="number" min="1" max="28" value="1">
+      <div id="settings-error" class="alert al-e" style="display:none;margin-bottom:14px"><i class="ti ti-alert-circle"></i><span id="settings-error-msg"></span></div>
+      <div style="display:flex;gap:24px;align-items:flex-start">
+        <!-- Undermeny -->
+        <div style="width:180px;flex-shrink:0">
+          <div class="settings-subnav">
+            <div class="ssn-item ssn-active" id="ssn-email" onclick="switchSettingsTab('email')"><i class="ti ti-mail"></i> E-post</div>
+            <div class="ssn-item" id="ssn-integrations" onclick="switchSettingsTab('integrations')"><i class="ti ti-plug-connected"></i> Integrationer</div>
+            <div class="ssn-item" id="ssn-reports" onclick="switchSettingsTab('reports')"><i class="ti ti-calendar"></i> Rapporter</div>
+            <div class="ssn-item" id="ssn-orderstatus" onclick="switchSettingsTab('orderstatus')"><i class="ti ti-list-check"></i> Orderstatus</div>
           </div>
-          <div class="fr" style="margin:0">
-            <label class="fl">Klockslag</label>
+        </div>
+        <!-- Innehåll -->
+        <div style="flex:1;min-width:0;max-width:560px">
+
+          <!-- E-post -->
+          <div id="stab-email">
+            <div class="fsec" style="margin-top:0">E-postutskick (Microsoft Graph)</div>
+            <div class="f2">
+              <div class="fr" style="margin:0"><label class="fl">Tenant ID</label><input class="fi" id="s-graph-tenant-id" placeholder="TERAFALK:s tenant ID"></div>
+              <div class="fr" style="margin:0"><label class="fl">Client ID</label><input class="fi" id="s-graph-client-id" placeholder="App registration client ID"></div>
+            </div>
+            <div class="fr"><label class="fl">Client Secret</label><input class="fi" type="password" id="s-graph-client-secret" placeholder="Lämna tomt för att behålla befintligt"></div>
+            <div class="fr"><label class="fl">Avsändaradress</label><input class="fi" id="s-graph-sender" placeholder="noreply@terafalk.com"></div>
+            <button class="btn btn-p btn-sm" onclick="saveAppSettings()" style="margin-top:4px"><i class="ti ti-check"></i> Spara e-postinställningar</button>
+          </div>
+
+          <!-- Integrationer -->
+          <div id="stab-integrations" style="display:none">
+            <div class="fsec" style="margin-top:0">Microsoft 365 kundintegration (multi-tenant)</div>
+            <div class="f2">
+              <div class="fr" style="margin:0"><label class="fl">Client ID</label><input class="fi" id="s-ms-client-id" placeholder="Multi-tenant app client ID"></div>
+              <div class="fr" style="margin:0"><label class="fl">Redirect URI</label><input class="fi" id="s-ms-redirect-uri" placeholder="https://insight.terafalk.com/api/auth/microsoft/callback"></div>
+            </div>
+            <div class="fr"><label class="fl">Client Secret</label><input class="fi" type="password" id="s-ms-client-secret" placeholder="Lämna tomt för att behålla befintligt"></div>
+            <button class="btn btn-p btn-sm" onclick="saveAppSettings()" style="margin-top:4px"><i class="ti ti-check"></i> Spara integrationsinställningar</button>
+          </div>
+
+          <!-- Rapporter -->
+          <div id="stab-reports" style="display:none">
+            <div class="fsec" style="margin-top:0">Rapportschema</div>
+            <div class="alert al-info" style="margin-bottom:16px"><i class="ti ti-info-circle"></i><span id="s-next-run">Laddar nästa körning...</span></div>
+            <div class="f2">
+              <div class="fr" style="margin:0">
+                <label class="fl">Dag i månaden <span style="font-weight:400;color:var(--muted)">(1–28)</span></label>
+                <input class="fi" id="s-day" type="number" min="1" max="28" value="1">
+              </div>
+              <div class="fr" style="margin:0">
+                <label class="fl">Klockslag</label>
+                <div style="display:flex;gap:8px">
+                  <input class="fi" id="s-hour" type="number" min="0" max="23" value="8" style="width:80px" placeholder="Timme">
+                  <input class="fi" id="s-minute" type="number" min="0" max="59" value="0" style="width:80px" placeholder="Minut">
+                </div>
+              </div>
+            </div>
+            <div class="fh">Tidszon: Europe/Stockholm. Ändringar gäller direkt utan omstart.</div>
+            <button class="btn btn-p" id="s-save-btn" onclick="saveSchedule()" style="margin-top:16px"><i class="ti ti-check"></i> Spara schema</button>
+          </div>
+
+          <!-- Orderstatus -->
+          <div id="stab-orderstatus" style="display:none">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+              <div class="fsec" style="margin:0">Orderstatus</div>
+              <div style="display:flex;gap:6px">
+                <button class="btn btn-g btn-sm" onclick="setPhaseTab('order')" id="ptab-order" style="font-weight:700;color:var(--blue)">Order</button>
+                <button class="btn btn-g btn-sm" onclick="setPhaseTab('project')" id="ptab-project">Projekt</button>
+              </div>
+            </div>
+            <div id="s-phases-list" style="margin-bottom:12px"></div>
             <div style="display:flex;gap:8px">
-              <input class="fi" id="s-hour" type="number" min="0" max="23" value="8" style="width:80px" placeholder="Timme">
-              <input class="fi" id="s-minute" type="number" min="0" max="59" value="0" style="width:80px" placeholder="Minut">
+              <input class="fi" id="s-new-phase-name" placeholder="Ny status…" style="flex:1">
+              <button class="btn btn-p btn-sm" onclick="addPhaseTemplate()"><i class="ti ti-plus"></i> Lägg till</button>
             </div>
           </div>
-        </div>
-        <div class="fh">Tidszon: Europe/Stockholm. Ändringar gäller direkt utan omstart.</div>
-        <button class="btn btn-p" id="s-save-btn" onclick="saveSchedule()" style="margin-top:16px"><i class="ti ti-check"></i> Spara schema</button>
-      </div>
 
-      <!-- Orderstatus -->
-      <div class="fw" style="max-width:560px;margin-top:20px" id="s-phases-wrap">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-          <div class="fsec" style="margin:0">Orderstatus</div>
-          <div style="display:flex;gap:6px">
-            <button class="btn btn-g btn-sm" onclick="setPhaseTab('order')" id="ptab-order" style="font-weight:700;color:var(--blue)">Order</button>
-            <button class="btn btn-g btn-sm" onclick="setPhaseTab('project')" id="ptab-project">Projekt</button>
-          </div>
-        </div>
-        <div id="s-phases-list" style="margin-bottom:12px"></div>
-        <div style="display:flex;gap:8px">
-          <input class="fi" id="s-new-phase-name" placeholder="Ny status…" style="flex:1">
-          <button class="btn btn-p btn-sm" onclick="addPhaseTemplate()"><i class="ti ti-plus"></i> Lägg till</button>
         </div>
       </div>
     </div>
@@ -3467,6 +3497,14 @@ async function loadPhaseTemplates() {
     _settingsPhases = await api('/api/phase-templates');
     renderPhaseSettings();
   } catch(e) { /* tyst fel om admin saknas */ }
+}
+
+function switchSettingsTab(tab) {
+  ['email','integrations','reports','orderstatus'].forEach(id => {
+    document.getElementById('stab-' + id).style.display = id === tab ? '' : 'none';
+    const el = document.getElementById('ssn-' + id);
+    el.classList.toggle('ssn-active', id === tab);
+  });
 }
 
 function setPhaseTab(tab) {
