@@ -3525,6 +3525,16 @@ function closeTaskModal() {
   document.getElementById('modal-task').style.display = 'none';
 }
 
+function openModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = 'flex';
+}
+
+function closeModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = 'none';
+}
+
 async function submitTaskModal() {
   const body = {
     title: document.getElementById('mt-title').value.trim(),
