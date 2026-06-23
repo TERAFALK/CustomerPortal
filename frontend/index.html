@@ -2947,8 +2947,9 @@ async function loadOrderDetail(orderId) {
     document.getElementById('od-admin-info-btns').style.display = isAdmin ? '' : 'none';
     document.getElementById('od-upload-btn').style.display = isAdmin ? '' : 'none';
     if (isAdmin) {
-      // Dölj Makulera om redan makulerad, visa annars
-      document.getElementById('od-cancel-btn').style.display = order.status === 'cancelled' ? 'none' : '';
+      const isCancelled = order.status === 'cancelled';
+      document.getElementById('od-cancel-btn').style.display = isCancelled ? 'none' : '';
+      document.getElementById('od-delete-btn').style.display = isCancelled ? '' : 'none';
     }
     document.getElementById('od-time-form-card').style.display = isAdmin ? '' : 'none';
     // Kund ser bara debiterbar tid (inte faktisk tid)
@@ -3123,8 +3124,7 @@ async function renderPlanering(orderId) {
     if (cols.length === 0 || new Date(cols[cols.length-1]) <= maxDate) {
       cols.push(new Date(cur));
     }
-    const gridEnd = new Date(cur);
-    const gridSpan = Math.max(1, (gridEnd - snapStart) / 86400000);
+    const gridSpan = cols.length * colDays;
     const colWidthPct = 100 / cols.length;
 
     // Header-etiketter
@@ -3378,6 +3378,10 @@ async function cancelCurrentOrder() {
 
 async function deleteCurrentOrder() {
   if (!_currentOrder) return;
+  if (_currentOrder.status !== 'cancelled') {
+    t('Ordern måste makuleras innan den kan tas bort', 'err');
+    return;
+  }
   const label = _currentOrder.type === 'project' ? 'projektet' : 'ordern';
   if (!confirm(`Ta bort ${label} permanent? Detta kan inte ångras.`)) return;
   try {
