@@ -108,7 +108,7 @@ async def dashboard_summary(
             offline = sum(1 for d in devices if not d.get("is_online", True))
             needs_upd = sum(1 for d in devices if d.get("needs_update"))
             wans = [w for h in (unifi.get("hosts") or []) for w in (h.get("wans") or [])]
-            wan_down = sum(1 for w in wans if (w.get("uptime_percentage") or 0) < 99.9)
+            wan_down = sum(1 for w in wans if not w.get("is_up", True))
 
             summary["unifi"] = {
                 "total_devices": total,
