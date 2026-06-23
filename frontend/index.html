@@ -1061,10 +1061,10 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
         <button class="btn btn-p" id="s-save-btn" onclick="saveSchedule()" style="margin-top:16px"><i class="ti ti-check"></i> Spara schema</button>
       </div>
 
-      <!-- Orderfaser -->
+      <!-- Orderstatus -->
       <div class="fw" style="max-width:560px;margin-top:20px" id="s-phases-wrap">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-          <div class="fsec" style="margin:0">Orderfaser</div>
+          <div class="fsec" style="margin:0">Orderstatus</div>
           <div style="display:flex;gap:6px">
             <button class="btn btn-g btn-sm" onclick="setPhaseTab('order')" id="ptab-order" style="font-weight:700;color:var(--blue)">Order</button>
             <button class="btn btn-g btn-sm" onclick="setPhaseTab('project')" id="ptab-project">Projekt</button>
@@ -1072,7 +1072,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
         </div>
         <div id="s-phases-list" style="margin-bottom:12px"></div>
         <div style="display:flex;gap:8px">
-          <input class="fi" id="s-new-phase-name" placeholder="Ny fas…" style="flex:1">
+          <input class="fi" id="s-new-phase-name" placeholder="Ny status…" style="flex:1">
           <button class="btn btn-p btn-sm" onclick="addPhaseTemplate()"><i class="ti ti-plus"></i> Lägg till</button>
         </div>
       </div>
@@ -1092,7 +1092,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
       <div class="card">
         <div class="cb0">
           <table class="tbl hov">
-            <thead><tr><th>Kund</th><th>Titel</th><th style="width:90px">Typ</th><th>Nuvarande fas</th><th style="width:90px">Status</th><th style="width:110px">Skapad</th></tr></thead>
+            <thead><tr><th>Kund</th><th>Titel</th><th style="width:90px">Typ</th><th>Nuvarande status</th><th style="width:90px">Status</th><th style="width:110px">Skapad</th></tr></thead>
             <tbody id="orders-tbody"><tr><td colspan="6" style="color:var(--muted);text-align:center;padding:20px">Laddar...</td></tr></tbody>
           </table>
         </div>
@@ -1118,7 +1118,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
       <!-- Fasindikator -->
       <div class="card" style="margin-bottom:16px" id="od-phase-card">
         <div class="ch">
-          <span class="cht">Fas</span>
+          <span class="cht">Status</span>
           <div style="display:flex;gap:8px" id="od-phase-btns">
             <button class="btn btn-g btn-sm" id="od-prev-phase-btn" onclick="changeOrderPhase(-1)"><i class="ti ti-chevron-left"></i> Föregående</button>
             <button class="btn btn-p btn-sm" id="od-next-phase-btn" onclick="changeOrderPhase(1)">Nästa <i class="ti ti-chevron-right"></i></button>
@@ -1235,7 +1235,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
       <textarea class="fi" id="mo-description" rows="3" placeholder="Valfri beskrivning" style="resize:vertical"></textarea>
     </div>
     <div class="fr">
-      <label class="fl">Startfas</label>
+      <label class="fl">Startstatus</label>
       <select class="fi" id="mo-phase"></select>
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
@@ -2994,7 +2994,7 @@ function switchOdTab(tab) {
 
 function renderPhaseTrack(order, phases) {
   const container = document.getElementById('od-phase-track');
-  if (!phases.length) { container.innerHTML = '<span style="color:var(--muted);font-size:13px">Inga faser konfigurerade.</span>'; return; }
+  if (!phases.length) { container.innerHTML = '<span style="color:var(--muted);font-size:13px">Inga statusar konfigurerade.</span>'; return; }
   const currentPos = order.current_phase ? order.current_phase.position : -1;
   container.innerHTML = phases.map(p => {
     const done = p.position < currentPos;
@@ -3016,7 +3016,7 @@ async function changeOrderPhase(dir) {
   try {
     await api('/api/orders/' + _currentOrder.id + '/phase', { method: 'POST', body: JSON.stringify({ phase_id: phases[newIdx].id }) });
     await loadOrderDetail(_currentOrder.id);
-    t('Fas uppdaterad');
+    t('Status uppdaterad');
   } catch(e) { t(e.message, 'err'); }
 }
 
@@ -3483,7 +3483,7 @@ function renderPhaseSettings() {
   if (!el) return;
   const phases = _settingsPhases.filter(p => p.order_type === _phaseTab).sort((a,b) => a.position - b.position);
   if (!phases.length) {
-    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Inga faser konfigurerade.</div>';
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Inga statusar konfigurerade.</div>';
     return;
   }
   el.innerHTML = phases.map((p, idx) => `
@@ -3508,7 +3508,7 @@ async function savePhaseNameIfChanged(id) {
       body: JSON.stringify({ order_type: phase.order_type, name: newName, position: phase.position })
     });
     phase.name = newName;
-    t('Fas uppdaterad');
+    t('Status uppdaterad');
   } catch(e) { t(e.message, 'err'); input.value = phase.name; }
 }
 
@@ -3524,17 +3524,17 @@ async function addPhaseTemplate() {
     _settingsPhases.push(created);
     document.getElementById('s-new-phase-name').value = '';
     renderPhaseSettings();
-    t('Fas tillagd');
+    t('Status tillagd');
   } catch(e) { t(e.message, 'err'); }
 }
 
 async function deletePhaseTemplate(id) {
-  if (!confirm('Ta bort fasen?')) return;
+  if (!confirm('Ta bort statusen?')) return;
   try {
     await api('/api/phase-templates/' + id, { method: 'DELETE' });
     _settingsPhases = _settingsPhases.filter(p => p.id !== id);
     renderPhaseSettings();
-    t('Fas borttagen');
+    t('Status borttagen');
   } catch(e) { t(e.message, 'err'); }
 }
 
