@@ -190,7 +190,12 @@ async def list_tickets(
     q = select(Ticket).options(
         selectinload(Ticket.customer),
         selectinload(Ticket.assigned_to),
+        selectinload(Ticket.created_by),
         selectinload(Ticket.category),
+        selectinload(Ticket.subcategory),
+        selectinload(Ticket.messages).selectinload(TicketMessage.author),
+        selectinload(Ticket.messages).selectinload(TicketMessage.attachments),
+        selectinload(Ticket.history),
     )
     if not _is_staff(user):
         q = q.where(Ticket.customer_id == user.customer_id)
