@@ -211,3 +211,176 @@ class TimeEntry(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     order: Mapped["Order"] = relationship(back_populates="time_entries")
+
+
+# ─────────────────────────────────────────────
+# Ärendehantering (ITIL)
+# ─────────────────────────────────────────────
+
+class TicketCategory(Base):
+    """Hierarkisk kategori för ärenden (kategori → underkategori)."""
+
+    __tablename__ = "ticket_categories"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    parent_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("ticket_categories.id"), nullable=True
+    )
+    color: Mapped[str] = mapped_column(String, default="#6b7280")
+    icon: Mapped[str] = mapped_column(String, default="ti-tag")
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    children: Mapped[list["TicketCategory"]] = relationship(
+        "TicketCategory", back_populates="parent"
+    )
+    parent: Mapped["TicketCategory | None"] = relationship(
+        "TicketCategory", back_populates="children", remote_side="TicketCategory.id"
+    )
+
+
+class TicketSlaPolicy(Base):
+    """SLA-tider per prioritet."""
+
+    __tablename__ = "ticket_sla_policies"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    priority: Mapped[str] = mapped_column(String, nullable=False)  # critical|high|medium|low
+    response_hours: Mapped[int] = mapped_column(Integer, nullable=False)
+    resolution_hours: Mapped[int] = mapped_column(Integer, nullable=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class Ticket(Base):
+    """Ett supportärende."""
+
+    __tablename__ = "tickets"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    ticket_number: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
+    customer_id: Mapped[str] = mapped_column(
+        String, ForeignKey("customers.id"), nullable=False, index=True
+    )
+    created_by_user_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("users.id"), nullable=True
+    )
+    assigned_to_user_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("users.id"), nullable=True
+    )
+    # ITIL-typ
+    type: Mapped[str] = mapped_column(String, default="incident")
+    # new|open|in_progress|pending_customer|resolved|closed|cancelled
+    status: Mapped[str] = mapped_column(String, default="new", index=True)
+    # critical|high|medium|low
+    priority: Mapped[str] = mapped_column(String, default="medium")
+    category_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("ticket_categories.id"), nullable=True
+    )
+    subcategory_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("ticket_categories.id"), nullable=True
+    )
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    resolution: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # E-post-källan (om ärendet skapades via e-post)
+    source_email: Mapped[str | None] = mapped_column(String, nullable=True)
+    source: Mapped[str] = mapped_column(String, default="portal")  # portal|email
+    # SLA
+    sla_due_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    sla_breached: Mapped[bool] = mapped_column(Boolean, default=False)
+    first_responded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    customer: Mapped["Customer"] = relationship()
+    created_by: Mapped["User | None"] = relationship(foreign_keys=[created_by_user_id])
+    assigned_to: Mapped["User | None"] = relationship(foreign_keys=[assigned_to_user_id])
+    category: Mapped["TicketCategory | None"] = relationship(foreign_keys=[category_id])
+    subcategory: Mapped["TicketCategory | None"] = relationship(foreign_keys=[subcategory_id])
+    messages: Mapped[list["TicketMessage"]] = relationship(
+        back_populates="ticket", cascade="all, delete-orphan", order_by="TicketMessage.created_at"
+    )
+    attachments: Mapped[list["TicketAttachment"]] = relationship(
+        back_populates="ticket", cascade="all, delete-orphan"
+    )
+    history: Mapped[list["TicketHistory"]] = relationship(
+        back_populates="ticket", cascade="all, delete-orphan", order_by="TicketHistory.changed_at"
+    )
+
+
+class TicketMessage(Base):
+    """Ett meddelande/svar i ett ärende."""
+
+    __tablename__ = "ticket_messages"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    ticket_id: Mapped[str] = mapped_column(
+        String, ForeignKey("tickets.id"), nullable=False, index=True
+    )
+    author_user_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("users.id"), nullable=True
+    )
+    # Om mailet kom in via e-post och avsändaren inte har ett konto
+    author_email: Mapped[str | None] = mapped_column(String, nullable=True)
+    author_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    is_internal: Mapped[bool] = mapped_column(Boolean, default=False)  # intern notering
+    source: Mapped[str] = mapped_column(String, default="portal")  # portal|email
+    # Graph message-id för att undvika dubbletter vid polling
+    email_message_id: Mapped[str | None] = mapped_column(String, nullable=True, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    ticket: Mapped["Ticket"] = relationship(back_populates="messages")
+    author: Mapped["User | None"] = relationship()
+    attachments: Mapped[list["TicketAttachment"]] = relationship(
+        back_populates="message", foreign_keys="TicketAttachment.message_id"
+    )
+
+
+class TicketAttachment(Base):
+    """Bifogad fil på ett ärende eller meddelande."""
+
+    __tablename__ = "ticket_attachments"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    ticket_id: Mapped[str] = mapped_column(
+        String, ForeignKey("tickets.id"), nullable=False, index=True
+    )
+    message_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("ticket_messages.id"), nullable=True
+    )
+    filename: Mapped[str] = mapped_column(String, nullable=False)
+    original_name: Mapped[str] = mapped_column(String, nullable=False)
+    mime_type: Mapped[str] = mapped_column(String, default="application/octet-stream")
+    file_path: Mapped[str] = mapped_column(String, nullable=False)
+    uploaded_by: Mapped[str | None] = mapped_column(String, ForeignKey("users.id"), nullable=True)
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    ticket: Mapped["Ticket"] = relationship(back_populates="attachments")
+    message: Mapped["TicketMessage | None"] = relationship(
+        back_populates="attachments", foreign_keys=[message_id]
+    )
+
+
+class TicketHistory(Base):
+    """Ändringslogg för ett ärende."""
+
+    __tablename__ = "ticket_history"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    ticket_id: Mapped[str] = mapped_column(
+        String, ForeignKey("tickets.id"), nullable=False, index=True
+    )
+    user_id: Mapped[str | None] = mapped_column(String, ForeignKey("users.id"), nullable=True)
+    field_changed: Mapped[str] = mapped_column(String, nullable=False)
+    old_value: Mapped[str | None] = mapped_column(String, nullable=True)
+    new_value: Mapped[str | None] = mapped_column(String, nullable=True)
+    changed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    ticket: Mapped["Ticket"] = relationship(back_populates="history")

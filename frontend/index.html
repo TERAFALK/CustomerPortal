@@ -503,6 +503,27 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
 .cd-tab-pane{display:none}
 .cd-tab-pane.active{display:block;animation:fade 0.18s ease}
 
+/* ── Ärenden ── */
+.tfilter.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.ticket-msg{border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.6}
+.ticket-msg.from-staff{background:#f0f4ff;border-left:3px solid var(--blue)}
+.ticket-msg.from-customer{background:#f9fafb;border-left:3px solid var(--border)}
+.ticket-msg.internal{background:#fffbeb;border-left:3px solid #f59e0b}
+.ticket-msg-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px;color:var(--muted)}
+.ticket-msg-author{font-weight:600;color:var(--text)}
+.tp-critical{background:#fce8e6;color:#c5221f}
+.tp-high{background:#fef3e2;color:#b06000}
+.tp-medium{background:#e8f0fd;color:#0047a3}
+.tp-low{background:#f1f3f4;color:#555}
+.ts-new{background:#e8f0fd;color:#0047a3}
+.ts-open{background:#e6f4ea;color:#137333}
+.ts-in_progress{background:#fff8e1;color:#b06000}
+.ts-pending_customer{background:#fce8e6;color:#c5221f}
+.ts-resolved{background:#e6f4ea;color:#137333}
+.ts-closed,.ts-cancelled{background:#f1f3f4;color:#555}
+.sla-ok{color:var(--ok);font-size:12px;font-weight:600}
+.sla-warn{color:#f59e0b;font-size:12px;font-weight:600}
+.sla-breach{color:var(--err);font-size:12px;font-weight:600}
 /* ── Inställningar: undermeny ── */
 .settings-subnav{display:flex;flex-direction:column;gap:2px;position:sticky;top:24px}
 .ssn-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:7px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;transition:background 0.15s,color 0.15s}
@@ -629,6 +650,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
   <div class="nav" data-v="customers" id="nav-customers" onclick="nav('customers')"><i class="ti ti-building-store"></i> Kunder</div>
   <div class="nav" data-v="reports" id="nav-reports" onclick="nav('reports')"><i class="ti ti-file-description"></i> Rapporter</div>
   <div class="nav" data-v="orders" id="nav-orders" onclick="nav('orders')"><i class="ti ti-clipboard-list"></i> Order & Projekt</div>
+  <div class="nav" data-v="tickets" id="nav-tickets" onclick="nav('tickets')"><i class="ti ti-ticket"></i> Ärenden</div>
   <div class="sb-section" id="nav-section-config">Konfiguration</div>
   <div class="nav" data-v="users" id="nav-users" onclick="nav('users')"><i class="ti ti-users"></i> Användare</div>
   <div class="nav" data-v="add-customer" id="nav-add-customer" onclick="nav('add-customer')"><i class="ti ti-plus"></i> Lägg till kund</div>
@@ -733,6 +755,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
       <div class="cd-tabs">
         <div class="cd-tab active" data-tab="network" onclick="switchCdTab('network')"><i class="ti ti-activity"></i> Driftstatus</div>
         <div class="cd-tab" data-tab="orders" onclick="switchCdTab('orders')"><i class="ti ti-clipboard-list"></i> Order & Projekt</div>
+        <div class="cd-tab" data-tab="tickets" onclick="switchCdTab('tickets')"><i class="ti ti-ticket"></i> Ärenden</div>
         <div class="cd-tab" data-tab="reports" onclick="switchCdTab('reports')"><i class="ti ti-file-description"></i> Rapporter</div>
       </div>
 
@@ -870,6 +893,15 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
         <div id="cd-orders-list"><div class="skel" style="padding:32px">Laddar ordrar...</div></div>
       </div>
 
+      <!-- Flik: Ärenden -->
+      <div class="cd-tab-pane" id="cd-pane-tickets">
+        <div class="ph" style="margin-bottom:16px">
+          <div></div>
+          <button class="btn btn-p btn-sm" onclick="openNewTicketModal(currentCustomerId)"><i class="ti ti-plus"></i> Nytt ärende</button>
+        </div>
+        <div id="cd-tickets-list"><div class="skel" style="padding:32px">Laddar ärenden...</div></div>
+      </div>
+
       <!-- Flik: Rapporter -->
       <div class="cd-tab-pane" id="cd-pane-reports">
         <div id="cd-reports-list"><div class="skel" style="padding:32px">Laddar rapporter...</div></div>
@@ -984,6 +1016,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
             <div class="fr" style="margin:0"><label class="fl">Roll</label>
               <select class="fi" id="cu-role" onchange="toggleCuCustomer()">
                 <option value="admin">Admin</option>
+                <option value="technician">Tekniker</option>
                 <option value="customer" selected>Kundanvändare</option>
               </select>
             </div>
@@ -1012,6 +1045,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
             <div class="fr" style="margin:0"><label class="fl">Roll</label>
               <select class="fi" id="eu-role" onchange="toggleEuCustomer()">
                 <option value="admin">Admin</option>
+                <option value="technician">Tekniker</option>
                 <option value="customer">Kundanvändare</option>
               </select>
             </div>
@@ -1039,6 +1073,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
             <div class="ssn-item" id="ssn-integrations" onclick="switchSettingsTab('integrations')"><i class="ti ti-plug-connected"></i> Integrationer</div>
             <div class="ssn-item" id="ssn-reports" onclick="switchSettingsTab('reports')"><i class="ti ti-calendar"></i> Rapporter</div>
             <div class="ssn-item" id="ssn-orderstatus" onclick="switchSettingsTab('orderstatus')"><i class="ti ti-list-check"></i> Orderstatus</div>
+            <div class="ssn-item" id="ssn-tickets" onclick="switchSettingsTab('tickets')"><i class="ti ti-ticket"></i> Ärenden</div>
           </div>
         </div>
         <!-- Innehåll -->
@@ -1104,6 +1139,147 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
             </div>
           </div>
 
+          <!-- Ärenden -->
+          <div id="stab-tickets" style="display:none">
+            <div class="fsec" style="margin-top:0">Kategorier</div>
+            <div id="s-ticket-cats" style="margin-bottom:12px"></div>
+            <div style="display:flex;gap:8px;margin-bottom:24px">
+              <input class="fi" id="s-new-cat-name" placeholder="Ny kategori…" style="flex:1">
+              <button class="btn btn-p btn-sm" onclick="addTopCategory()"><i class="ti ti-plus"></i> Lägg till</button>
+            </div>
+            <div class="fsec">SLA-tider per prioritet</div>
+            <div id="s-sla-list"></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ÄRENDEN – LISTA ══ -->
+    <div class="view" id="v-tickets">
+      <div class="ph">
+        <div class="ph-title">Ärenden</div>
+        <div class="ph-actions">
+          <button class="btn btn-p btn-sm" id="ticket-new-btn" onclick="openNewTicketModal()"><i class="ti ti-plus"></i> Nytt ärende</button>
+        </div>
+      </div>
+      <!-- Filterknappar -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
+        <div style="display:flex;gap:4px;flex-wrap:wrap" id="ticket-status-filters">
+          <button class="btn btn-g btn-sm tfilter active" data-filter="all" onclick="setTicketFilter('status','all',this)">Alla</button>
+          <button class="btn btn-g btn-sm tfilter" data-filter="new" onclick="setTicketFilter('status','new',this)">Nya</button>
+          <button class="btn btn-g btn-sm tfilter" data-filter="open" onclick="setTicketFilter('status','open',this)">Öppna</button>
+          <button class="btn btn-g btn-sm tfilter" data-filter="in_progress" onclick="setTicketFilter('status','in_progress',this)">Pågår</button>
+          <button class="btn btn-g btn-sm tfilter" data-filter="pending_customer" onclick="setTicketFilter('status','pending_customer',this)">Väntar på kund</button>
+          <button class="btn btn-g btn-sm tfilter" data-filter="resolved" onclick="setTicketFilter('status','resolved',this)">Lösta</button>
+          <button class="btn btn-g btn-sm tfilter" data-filter="closed" onclick="setTicketFilter('status','closed',this)">Stängda</button>
+        </div>
+        <div style="flex:1"></div>
+        <button class="btn btn-g btn-sm" id="ticket-mine-btn" onclick="toggleTicketMine()"><i class="ti ti-user"></i> Mina ärenden</button>
+        <input class="fi" id="ticket-search" placeholder="Sök ärende…" oninput="renderTicketsTable()" style="width:200px;padding:6px 10px">
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <table class="tbl" id="tickets-table">
+          <thead><tr>
+            <th style="width:140px">Nummer</th>
+            <th>Titel</th>
+            <th style="width:120px">Kund</th>
+            <th style="width:90px">Typ</th>
+            <th style="width:80px">Prioritet</th>
+            <th style="width:100px">Status</th>
+            <th style="width:100px">Tilldelad</th>
+            <th style="width:90px">SLA</th>
+            <th style="width:110px">Uppdaterad</th>
+          </tr></thead>
+          <tbody id="tickets-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ ÄRENDE – DETALJ ══ -->
+    <div class="view" id="v-ticket-detail">
+      <div class="ph">
+        <div class="ph-title" style="display:flex;align-items:center;gap:10px">
+          <button class="btn btn-g btn-sm" onclick="nav('tickets')"><i class="ti ti-arrow-left"></i></button>
+          <span id="td-number" style="color:var(--blue);font-weight:700"></span>
+          <span id="td-title-header" style="font-weight:500"></span>
+        </div>
+        <div class="ph-actions" id="td-header-actions"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start">
+        <!-- Vänster: meddelandetråd -->
+        <div>
+          <!-- Statusbadges -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px" id="td-badges"></div>
+          <!-- Meddelanden -->
+          <div id="td-messages" style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px"></div>
+          <!-- Svarsformulär -->
+          <div class="card" id="td-reply-card">
+            <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+              <span style="font-size:13px;font-weight:600">Svara</span>
+              <label id="td-internal-wrap" style="display:none;align-items:center;gap:6px;font-size:13px;cursor:pointer;margin-left:8px">
+                <input type="checkbox" id="td-internal-cb"> Intern notering
+              </label>
+            </div>
+            <textarea id="td-reply-body" class="fi" rows="4" placeholder="Skriv ditt svar…" style="width:100%;resize:vertical;font-size:13px"></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+              <button class="btn btn-p btn-sm" onclick="submitTicketReply()"><i class="ti ti-send"></i> Skicka</button>
+              <label class="btn btn-g btn-sm" style="cursor:pointer"><i class="ti ti-paperclip"></i> Bifoga <input type="file" id="td-attach-input" style="display:none" onchange="uploadTicketAttachment(this)"></label>
+            </div>
+          </div>
+        </div>
+        <!-- Höger: metadata -->
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="card">
+            <div class="ch"><span class="cht">Information</span></div>
+            <div class="cb" id="td-meta"></div>
+          </div>
+          <!-- Admin: åtgärder -->
+          <div class="card" id="td-actions-card">
+            <div class="ch"><span class="cht">Åtgärder</span></div>
+            <div class="cb">
+              <div class="fr" style="margin:0 0 8px">
+                <label class="fl">Status</label>
+                <select class="fi" id="td-status-sel" onchange="updateTicketField('status',this.value)"></select>
+              </div>
+              <div class="fr" style="margin:0 0 8px">
+                <label class="fl">Prioritet</label>
+                <select class="fi" id="td-prio-sel" onchange="updateTicketField('priority',this.value)">
+                  <option value="critical">Kritisk</option>
+                  <option value="high">Hög</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Låg</option>
+                </select>
+              </div>
+              <div class="fr" style="margin:0 0 8px">
+                <label class="fl">Typ</label>
+                <select class="fi" id="td-type-sel" onchange="updateTicketField('type',this.value)">
+                  <option value="incident">Incident</option>
+                  <option value="service_request">Serviceförfrågan</option>
+                  <option value="change">Ändringsärende</option>
+                  <option value="problem">Problem</option>
+                  <option value="information">Informationsförfrågan</option>
+                </select>
+              </div>
+              <div class="fr" style="margin:0 0 8px">
+                <label class="fl">Kategori</label>
+                <select class="fi" id="td-cat-sel" onchange="updateTicketField('category_id',this.value||null)"><option value="">— välj —</option></select>
+              </div>
+              <div class="fr" style="margin:0 0 8px">
+                <label class="fl">Underkategori</label>
+                <select class="fi" id="td-subcat-sel" onchange="updateTicketField('subcategory_id',this.value||null)"><option value="">— välj —</option></select>
+              </div>
+              <div class="fr" style="margin:0">
+                <label class="fl">Tilldelad</label>
+                <select class="fi" id="td-assign-sel" onchange="updateTicketField('assigned_to_user_id',this.value||null)"><option value="">— ej tilldelad —</option></select>
+              </div>
+            </div>
+          </div>
+          <!-- Historik -->
+          <div class="card">
+            <div class="ch"><span class="cht">Historik</span></div>
+            <div class="cb" id="td-history" style="font-size:12px"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -1237,6 +1413,65 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
 </div>
 
 <!-- ══ MODALER ══ -->
+
+<!-- Modal: Nytt ärende -->
+<div class="modal-backdrop" id="modal-ticket" style="display:none" onclick="if(event.target===this)closeModal('modal-ticket')">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-header">
+      <span id="mt-title">Nytt ärende</span>
+      <button class="modal-close" onclick="closeModal('modal-ticket')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="fr">
+        <label class="fl">Kund <span class="req">*</span></label>
+        <select class="fi" id="mt-customer"></select>
+      </div>
+      <div class="fr">
+        <label class="fl">Titel <span class="req">*</span></label>
+        <input class="fi" id="mt-title-input" placeholder="Kort beskrivning av ärendet">
+      </div>
+      <div class="fr">
+        <label class="fl">Beskrivning</label>
+        <textarea class="fi" id="mt-description" rows="4" placeholder="Detaljerad beskrivning…" style="resize:vertical"></textarea>
+      </div>
+      <div class="f2">
+        <div class="fr" style="margin:0">
+          <label class="fl">Typ</label>
+          <select class="fi" id="mt-type">
+            <option value="incident">Incident</option>
+            <option value="service_request">Serviceförfrågan</option>
+            <option value="change">Ändringsärende</option>
+            <option value="problem">Problem</option>
+            <option value="information">Informationsförfrågan</option>
+          </select>
+        </div>
+        <div class="fr" style="margin:0">
+          <label class="fl">Prioritet</label>
+          <select class="fi" id="mt-priority">
+            <option value="low">Låg</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">Hög</option>
+            <option value="critical">Kritisk</option>
+          </select>
+        </div>
+      </div>
+      <div class="f2">
+        <div class="fr" style="margin:0">
+          <label class="fl">Kategori</label>
+          <select class="fi" id="mt-category"><option value="">— välj —</option></select>
+        </div>
+        <div class="fr" style="margin:0">
+          <label class="fl">Underkategori</label>
+          <select class="fi" id="mt-subcategory"><option value="">— välj —</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-g" onclick="closeModal('modal-ticket')">Avbryt</button>
+      <button class="btn btn-p" onclick="saveNewTicket()"><i class="ti ti-check"></i> Skapa ärende</button>
+    </div>
+  </div>
+</div>
 
 <!-- Modal: Ny / redigera order -->
 <div id="modal-order" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:500;display:none;align-items:center;justify-content:center">
@@ -1386,26 +1621,36 @@ async function showApp() {
 }
 
 function applyRoleUI() {
-  const isAdmin = currentUser && currentUser.role === 'admin';
-  // Dölj admin-only nav-poster för kundanvändare
+  const role = currentUser?.role;
+  const isAdmin = role === 'admin';
+  const isStaff = role === 'admin' || role === 'technician';
+  const isCustomer = role === 'customer';
+
+  // Dölj admin-only nav-poster
   ['nav-users', 'nav-add-customer', 'nav-settings', 'nav-section-config'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = isAdmin ? '' : 'none';
   });
-  // Admin ser hela kundlistan; kund ser bara sin dashboard
+  // Kunder ser inte kundlistan
   const navCustomers = document.getElementById('nav-customers');
-  if (navCustomers) navCustomers.style.display = isAdmin ? '' : 'none';
+  if (navCustomers) navCustomers.style.display = isStaff ? '' : 'none';
+  // Reports-länken i sidebar bara för admin/tekniker (kunder når rapporter via fliken)
+  const navReports = document.getElementById('nav-reports');
+  if (navReports) navReports.style.display = isStaff ? '' : 'none';
   // Dölj admin-knappar för skapande av ordrar
   const ordersNewBtn = document.getElementById('orders-new-btn');
-  if (ordersNewBtn) ordersNewBtn.style.display = isAdmin ? '' : 'none';
+  if (ordersNewBtn) ordersNewBtn.style.display = isStaff ? '' : 'none';
   const cdNewOrderBtn = document.getElementById('cd-new-order-btn');
-  if (cdNewOrderBtn) cdNewOrderBtn.style.display = isAdmin ? '' : 'none';
+  if (cdNewOrderBtn) cdNewOrderBtn.style.display = isStaff ? '' : 'none';
   const cdAdminActions = document.getElementById('cd-admin-actions');
-  if (cdAdminActions) cdAdminActions.style.display = isAdmin ? '' : 'none';
+  if (cdAdminActions) cdAdminActions.style.display = isStaff ? '' : 'none';
+  // Nytt-ärende-knappen i listan visas för alla
+  const ticketNewBtn = document.getElementById('ticket-new-btn');
+  if (ticketNewBtn) ticketNewBtn.style.display = '';
 
   // Uppdatera sidofältets användarinfo
-  const name = (currentUser && currentUser.full_name) || (currentUser && currentUser.email) || 'Användare';
-  const roleLabel = (currentUser && currentUser.role === 'customer') ? 'Kundanvändare · Logga ut' : 'Admin · Logga ut';
+  const name = currentUser?.full_name || currentUser?.email || 'Användare';
+  const roleLabel = isCustomer ? 'Kundanvändare · Logga ut' : isAdmin ? 'Admin · Logga ut' : 'Tekniker · Logga ut';
   const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'AN';
   const sbName = document.getElementById('sb-name');
   const sbRole = document.getElementById('sb-role');
@@ -1433,8 +1678,8 @@ document.addEventListener('keydown', e => {
 
 // ── Navigation ────────────────────────────────────────────────────────────
 
-const titles = { dashboard: 'Översikt', customers: 'Kunder', 'customer-detail': 'Kund', 'edit-customer': 'Redigera kund', reports: 'Rapporter', 'add-customer': 'Ny kund', settings: 'Inställningar', integrations: 'Integrationer', users: 'Användare', orders: 'Order & Projekt', 'order-detail': 'Order' };
-const parents = { dashboard: 'dashboard', customers: 'customers', 'customer-detail': 'customers', 'edit-customer': 'customers', reports: 'reports', 'add-customer': 'add-customer', settings: 'settings', integrations: 'customers', users: 'users', orders: 'orders', 'order-detail': 'orders' };
+const titles = { dashboard: 'Översikt', customers: 'Kunder', 'customer-detail': 'Kund', 'edit-customer': 'Redigera kund', reports: 'Rapporter', 'add-customer': 'Ny kund', settings: 'Inställningar', integrations: 'Integrationer', users: 'Användare', orders: 'Order & Projekt', 'order-detail': 'Order', tickets: 'Ärenden', 'ticket-detail': 'Ärende' };
+const parents = { dashboard: 'dashboard', customers: 'customers', 'customer-detail': 'customers', 'edit-customer': 'customers', reports: 'reports', 'add-customer': 'add-customer', settings: 'settings', integrations: 'customers', users: 'users', orders: 'orders', 'order-detail': 'orders', tickets: 'tickets', 'ticket-detail': 'tickets' };
 
 let _currentView = 'dashboard';
 
@@ -1470,6 +1715,7 @@ function nav(id) {
   if (id === 'users') loadUsers();
   if (id === 'settings') loadSettings();
   if (id === 'orders') loadOrders();
+  if (id === 'tickets') loadTickets();
   // Sätt standarddatum för tidsregistrering
   const teDateEl = document.getElementById('te-date');
   if (teDateEl && !teDateEl.value) teDateEl.value = new Date().toISOString().slice(0,10);
@@ -2568,6 +2814,7 @@ function toggleCuCustomer() {
   document.getElementById('cu-customer-row').style.display = role === 'customer' ? '' : 'none';
 }
 
+
 async function submitCreateUser() {
   const full_name = document.getElementById('cu-name').value.trim();
   const email = document.getElementById('cu-email').value.trim();
@@ -2832,7 +3079,45 @@ function switchCdTab(tab) {
     el.classList.toggle('active', el.id === 'cd-pane-' + tab);
   });
   if (tab === 'orders' && currentCustomerId) loadCustomerOrders(currentCustomerId);
+  if (tab === 'tickets' && currentCustomerId) loadCustomerTickets(currentCustomerId);
   if (tab === 'reports' && currentCustomerId) loadCustomerReports(currentCustomerId);
+}
+
+async function loadCustomerTickets(customerId) {
+  const el = document.getElementById('cd-tickets-list');
+  if (!el) return;
+  el.innerHTML = '<div class="skel" style="padding:24px">Laddar ärenden...</div>';
+  try {
+    const tickets = await api('/api/tickets?customer_id=' + customerId);
+    if (!tickets.length) {
+      el.innerHTML = '<div class="empty"><i class="ti ti-ticket-off"></i>Inga ärenden för denna kund.</div>';
+      return;
+    }
+    el.innerHTML = `<div class="card" style="padding:0;overflow:hidden">
+      <table class="tbl">
+        <thead><tr>
+          <th style="width:140px">Nummer</th>
+          <th>Titel</th>
+          <th style="width:90px">Typ</th>
+          <th style="width:80px">Prioritet</th>
+          <th style="width:100px">Status</th>
+          <th style="width:100px">Tilldelad</th>
+          <th style="width:110px">Uppdaterad</th>
+        </tr></thead>
+        <tbody>
+          ${tickets.map(tk => `<tr style="cursor:pointer" onclick="openTicketDetail('${tk.id}')">
+            <td><span style="font-family:monospace;font-weight:700;color:var(--blue);font-size:12px">${escapeHtml(tk.ticket_number)}</span></td>
+            <td>${escapeHtml(tk.title)}</td>
+            <td><span class="b b-muted" style="font-size:11px">${TYPE_LABEL[tk.type]||tk.type}</span></td>
+            <td><span class="b ${PRIO_CLS[tk.priority]||''}" style="font-size:11px">${PRIO_LABEL[tk.priority]||tk.priority}</span></td>
+            <td><span class="b ${STATUS_CLS[tk.status]||''}" style="font-size:11px">${STATUS_LABEL[tk.status]||tk.status}</span></td>
+            <td style="font-size:12px">${escapeHtml(tk.assigned_to?.name||'—')}</td>
+            <td style="font-size:12px;color:var(--muted)">${_relTime(tk.updated_at||tk.created_at)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  } catch(e) { el.innerHTML = `<div class="alert al-e">${e.message}</div>`; }
 }
 
 async function loadCustomerReports(customerId) {
@@ -3500,11 +3785,12 @@ async function loadPhaseTemplates() {
 }
 
 function switchSettingsTab(tab) {
-  ['email','integrations','reports','orderstatus'].forEach(id => {
+  ['email','integrations','reports','orderstatus','tickets'].forEach(id => {
     document.getElementById('stab-' + id).style.display = id === tab ? '' : 'none';
     const el = document.getElementById('ssn-' + id);
-    el.classList.toggle('ssn-active', id === tab);
+    if (el) el.classList.toggle('ssn-active', id === tab);
   });
+  if (tab === 'tickets') loadTicketSettings();
 }
 
 function setPhaseTab(tab) {
@@ -3597,6 +3883,462 @@ async function movePhase(id, dir) {
 // Stäng modaler vid klick utanför
 document.getElementById('modal-order').addEventListener('click', function(e) { if(e.target===this) closeOrderModal(); });
 document.getElementById('modal-task').addEventListener('click', function(e) { if(e.target===this) closeTaskModal(); });
+
+// ═══════════════════════════════════════════════════════
+// ÄRENDEHANTERING
+// ═══════════════════════════════════════════════════════
+
+const PRIO_LABEL   = { critical:'Kritisk', high:'Hög', medium:'Medium', low:'Låg' };
+const PRIO_CLS     = { critical:'tp-critical', high:'tp-high', medium:'tp-medium', low:'tp-low' };
+const STATUS_LABEL = { new:'Ny', open:'Öppen', in_progress:'Pågår', pending_customer:'Väntar på kund', resolved:'Löst', closed:'Stängd', cancelled:'Makulerad' };
+const STATUS_CLS   = { new:'ts-new', open:'ts-open', in_progress:'ts-in_progress', pending_customer:'ts-pending_customer', resolved:'ts-resolved', closed:'ts-closed', cancelled:'ts-cancelled' };
+const TYPE_LABEL   = { incident:'Incident', service_request:'Serviceförfrågan', change:'Ändringsärende', problem:'Problem', information:'Informationsförfrågan' };
+
+let _tickets = [];
+let _ticketFilter = { status: 'all', mine: false };
+let _currentTicket = null;
+let _ticketCategories = [];
+let _ticketStaff = [];
+
+// ── Lista ────────────────────────────────────────────────────────────────────
+
+async function loadTickets() {
+  try {
+    _tickets = await api('/api/tickets');
+    renderTicketsTable();
+  } catch(e) { t(e.message, 'err'); }
+}
+
+function setTicketFilter(key, val, btn) {
+  _ticketFilter[key] = val;
+  if (btn) {
+    btn.closest('[id]').querySelectorAll('.tfilter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  renderTicketsTable();
+}
+
+function toggleTicketMine() {
+  _ticketFilter.mine = !_ticketFilter.mine;
+  const btn = document.getElementById('ticket-mine-btn');
+  btn.style.background = _ticketFilter.mine ? 'var(--blue)' : '';
+  btn.style.color = _ticketFilter.mine ? '#fff' : '';
+  renderTicketsTable();
+}
+
+function renderTicketsTable() {
+  const search = (document.getElementById('ticket-search')?.value || '').toLowerCase();
+  const myId = currentUser?.id;
+
+  let list = _tickets.filter(tk => {
+    if (_ticketFilter.status !== 'all' && tk.status !== _ticketFilter.status) return false;
+    if (_ticketFilter.mine && tk.assigned_to?.id !== myId) return false;
+    if (search && !tk.title.toLowerCase().includes(search) && !tk.ticket_number.toLowerCase().includes(search) && !(tk.customer_name||'').toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  const tbody = document.getElementById('tickets-tbody');
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)">Inga ärenden hittades</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(tk => {
+    const sla = _slaDisplay(tk);
+    return `<tr style="cursor:pointer" onclick="openTicketDetail('${tk.id}')">
+      <td><span style="font-family:monospace;font-weight:700;color:var(--blue);font-size:12px">${escapeHtml(tk.ticket_number)}</span></td>
+      <td>${escapeHtml(tk.title)}</td>
+      <td style="font-size:12px">${escapeHtml(tk.customer_name||'—')}</td>
+      <td><span class="b b-muted" style="font-size:11px">${TYPE_LABEL[tk.type]||tk.type}</span></td>
+      <td><span class="b ${PRIO_CLS[tk.priority]||''}" style="font-size:11px">${PRIO_LABEL[tk.priority]||tk.priority}</span></td>
+      <td><span class="b ${STATUS_CLS[tk.status]||''}" style="font-size:11px">${STATUS_LABEL[tk.status]||tk.status}</span></td>
+      <td style="font-size:12px">${escapeHtml(tk.assigned_to?.name||'—')}</td>
+      <td>${sla}</td>
+      <td style="font-size:12px;color:var(--muted)">${_relTime(tk.updated_at||tk.created_at)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function _slaDisplay(tk) {
+  if (!tk.sla_due_at) return '<span style="color:var(--muted);font-size:12px">—</span>';
+  if (tk.sla_breached) return '<span class="sla-breach">SLA brutet</span>';
+  const due = new Date(tk.sla_due_at);
+  const diffH = (due - Date.now()) / 3600000;
+  if (diffH < 0) return '<span class="sla-breach">Försenad</span>';
+  if (diffH < 2) return `<span class="sla-warn">${Math.round(diffH*60)}m kvar</span>`;
+  if (diffH < 8) return `<span class="sla-warn">${Math.round(diffH)}h kvar</span>`;
+  return `<span class="sla-ok">${Math.round(diffH)}h kvar</span>`;
+}
+
+function _relTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso), now = new Date();
+  const diffM = (now - d) / 60000;
+  if (diffM < 2) return 'Just nu';
+  if (diffM < 60) return `${Math.round(diffM)}m sedan`;
+  if (diffM < 1440) return `${Math.round(diffM/60)}h sedan`;
+  return d.toLocaleDateString('sv-SE');
+}
+
+// ── Detalj ───────────────────────────────────────────────────────────────────
+
+async function openTicketDetail(ticketId) {
+  nav('ticket-detail');
+  try {
+    _currentTicket = await api('/api/tickets/' + ticketId);
+    await _ensureTicketMeta();
+    renderTicketDetail();
+  } catch(e) { t(e.message, 'err'); }
+}
+
+async function _ensureTicketMeta() {
+  if (!_ticketCategories.length) {
+    _ticketCategories = await api('/api/ticket-settings/categories');
+  }
+  if (!_ticketStaff.length) {
+    try {
+      const users = await api('/api/users');
+      _ticketStaff = users.filter(u => u.role === 'admin' || u.role === 'technician');
+    } catch(e) {}
+  }
+}
+
+function renderTicketDetail() {
+  const tk = _currentTicket;
+  const isStaff = currentUser?.role === 'admin' || currentUser?.role === 'technician';
+
+  document.getElementById('td-number').textContent = tk.ticket_number;
+  document.getElementById('td-title-header').textContent = tk.title;
+
+  // Badges
+  document.getElementById('td-badges').innerHTML = `
+    <span class="b ${PRIO_CLS[tk.priority]||''}">${PRIO_LABEL[tk.priority]||tk.priority}</span>
+    <span class="b ${STATUS_CLS[tk.status]||''}">${STATUS_LABEL[tk.status]||tk.status}</span>
+    <span class="b b-muted">${TYPE_LABEL[tk.type]||tk.type}</span>
+    ${tk.sla_breached ? '<span class="b" style="background:#fce8e6;color:#c5221f">SLA brutet</span>' : ''}
+  `;
+
+  // Meddelanden
+  const msgs = tk.messages || [];
+  const msgsEl = document.getElementById('td-messages');
+  if (!msgs.length) {
+    msgsEl.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:8px">Inga meddelanden ännu.</div>`;
+  } else {
+    msgsEl.innerHTML = msgs.map(m => {
+      const isStaffMsg = m.author_role === 'admin' || m.author_role === 'technician';
+      const cls = m.is_internal ? 'internal' : isStaffMsg ? 'from-staff' : 'from-customer';
+      const tag = m.is_internal ? ' <span style="font-size:10px;background:#f59e0b;color:#fff;border-radius:3px;padding:1px 5px">INTERN</span>' : '';
+      const atts = (m.attachments||[]).map(a =>
+        `<a href="/api/tickets/${tk.id}/attachments/${a.id}/download" target="_blank" style="font-size:11px;color:var(--blue);display:inline-flex;align-items:center;gap:3px;margin-top:6px"><i class="ti ti-paperclip"></i>${escapeHtml(a.original_name)}</a>`
+      ).join(' ');
+      return `<div class="ticket-msg ${cls}">
+        <div class="ticket-msg-header">
+          <span class="ticket-msg-author">${escapeHtml(m.author_name)}${tag}</span>
+          <span>${_relTime(m.created_at)}</span>
+        </div>
+        <div>${m.body}</div>
+        ${atts}
+      </div>`;
+    }).join('');
+  }
+
+  // Svarsformulär
+  const closed = ['closed','cancelled','resolved'].includes(tk.status);
+  document.getElementById('td-reply-card').style.display = closed && !isStaff ? 'none' : '';
+  if (isStaff) document.getElementById('td-internal-wrap').style.display = 'flex';
+
+  // Metadata
+  const slaTime = tk.sla_due_at ? new Date(tk.sla_due_at).toLocaleString('sv-SE') : '—';
+  document.getElementById('td-meta').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:8px;font-size:13px">
+      <div><span style="color:var(--muted)">Kund</span><br><strong>${escapeHtml(tk.customer_name||'—')}</strong></div>
+      <div><span style="color:var(--muted)">Skapad av</span><br>${escapeHtml(tk.created_by?.name||'Okänd')}</div>
+      <div><span style="color:var(--muted)">Tilldelad</span><br>${escapeHtml(tk.assigned_to?.name||'—')}</div>
+      <div><span style="color:var(--muted)">Kategori</span><br>${escapeHtml(tk.category?.name||'—')}${tk.subcategory ? ' › ' + escapeHtml(tk.subcategory.name) : ''}</div>
+      <div><span style="color:var(--muted)">SLA-deadline</span><br><span class="${tk.sla_breached?'sla-breach':''}">${slaTime}</span></div>
+      <div><span style="color:var(--muted)">Skapad</span><br>${new Date(tk.created_at).toLocaleString('sv-SE')}</div>
+    </div>
+  `;
+
+  // Åtgärdspanel (personal)
+  const actCard = document.getElementById('td-actions-card');
+  actCard.style.display = isStaff ? '' : 'none';
+  if (isStaff) {
+    // Status-dropdown
+    const statusSel = document.getElementById('td-status-sel');
+    statusSel.innerHTML = Object.entries(STATUS_LABEL).map(([v,l]) =>
+      `<option value="${v}"${tk.status===v?' selected':''}>${l}</option>`
+    ).join('');
+
+    // Prioritet, typ
+    document.getElementById('td-prio-sel').value = tk.priority;
+    document.getElementById('td-type-sel').value = tk.type;
+
+    // Kategorier
+    const topCats = _ticketCategories.filter(c => !c.parent_id && c.is_active);
+    const catSel = document.getElementById('td-cat-sel');
+    catSel.innerHTML = '<option value="">— välj —</option>' + topCats.map(c =>
+      `<option value="${c.id}"${tk.category?.id===c.id?' selected':''}>${escapeHtml(c.name)}</option>`
+    ).join('');
+    _updateSubcatOptions(tk.category?.id, tk.subcategory?.id);
+    catSel.onchange = () => { updateTicketField('category_id', catSel.value||null); _updateSubcatOptions(catSel.value, null); };
+
+    // Tilldelade
+    const assignSel = document.getElementById('td-assign-sel');
+    assignSel.innerHTML = '<option value="">— ej tilldelad —</option>' + _ticketStaff.map(u =>
+      `<option value="${u.id}"${tk.assigned_to?.id===u.id?' selected':''}>${escapeHtml(u.full_name||u.email)}</option>`
+    ).join('');
+  }
+
+  // Historik
+  const hist = tk.history || [];
+  document.getElementById('td-history').innerHTML = hist.length ? hist.map(h => {
+    const fieldMap = { status:'Status', priority:'Prioritet', type:'Typ', assigned_to:'Tilldelad' };
+    return `<div style="padding:5px 0;border-bottom:1px solid var(--border)">
+      <span style="color:var(--muted)">${new Date(h.changed_at).toLocaleString('sv-SE')}</span><br>
+      ${fieldMap[h.field]||h.field}: <em>${h.old_value||'—'}</em> → <strong>${h.new_value||'—'}</strong>
+    </div>`;
+  }).join('') : '<span style="color:var(--muted)">Ingen historik</span>';
+}
+
+function _updateSubcatOptions(parentId, selectedId) {
+  const subs = _ticketCategories.filter(c => c.parent_id === parentId && c.is_active);
+  const sel = document.getElementById('td-subcat-sel');
+  sel.innerHTML = '<option value="">— välj —</option>' + subs.map(c =>
+    `<option value="${c.id}"${selectedId===c.id?' selected':''}>${escapeHtml(c.name)}</option>`
+  ).join('');
+}
+
+async function updateTicketField(field, value) {
+  try {
+    const body = { [field]: value };
+    _currentTicket = await api('/api/tickets/' + _currentTicket.id, {
+      method: 'PUT', body: JSON.stringify(body),
+    });
+    renderTicketDetail();
+    // Uppdatera i listan
+    const idx = _tickets.findIndex(t => t.id === _currentTicket.id);
+    if (idx >= 0) _tickets[idx] = _currentTicket;
+    t('Ärende uppdaterat');
+  } catch(e) { t(e.message, 'err'); }
+}
+
+async function submitTicketReply() {
+  const body = document.getElementById('td-reply-body').value.trim();
+  if (!body) return;
+  const isInternal = document.getElementById('td-internal-cb')?.checked || false;
+  try {
+    await api('/api/tickets/' + _currentTicket.id + '/messages', {
+      method: 'POST', body: JSON.stringify({ body, is_internal: isInternal }),
+    });
+    document.getElementById('td-reply-body').value = '';
+    if (document.getElementById('td-internal-cb')) document.getElementById('td-internal-cb').checked = false;
+    _currentTicket = await api('/api/tickets/' + _currentTicket.id);
+    renderTicketDetail();
+    t('Svar skickat');
+  } catch(e) { t(e.message, 'err'); }
+}
+
+async function uploadTicketAttachment(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const resp = await fetch('/api/tickets/' + _currentTicket.id + '/attachments', {
+      method: 'POST', headers: { 'Authorization': 'Bearer ' + authToken }, body: fd,
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+    _currentTicket = await api('/api/tickets/' + _currentTicket.id);
+    renderTicketDetail();
+    t('Fil bifogad');
+  } catch(e) { t(e.message, 'err'); }
+  input.value = '';
+}
+
+// ── Skapa nytt ärende ────────────────────────────────────────────────────────
+
+async function openNewTicketModal(prefillCustomerId) {
+  if (!_ticketCategories.length) {
+    _ticketCategories = await api('/api/ticket-settings/categories');
+  }
+  // Fyll kundlista
+  const sel = document.getElementById('mt-customer');
+  if (currentUser?.role !== 'admin' && currentUser?.role !== 'technician') {
+    sel.innerHTML = `<option value="${currentUser.customer_id}">${currentUser.customer_id}</option>`;
+    sel.disabled = true;
+  } else {
+    const customers = await api('/api/customers');
+    sel.disabled = false;
+    sel.innerHTML = customers.map(c => `<option value="${c.id}"${c.id===prefillCustomerId?' selected':''}>${escapeHtml(c.name)}</option>`).join('');
+  }
+  // Fyll kategorier
+  const topCats = _ticketCategories.filter(c => !c.parent_id && c.is_active);
+  document.getElementById('mt-category').innerHTML = '<option value="">— välj —</option>' + topCats.map(c =>
+    `<option value="${c.id}">${escapeHtml(c.name)}</option>`
+  ).join('');
+  document.getElementById('mt-subcategory').innerHTML = '<option value="">— välj —</option>';
+  document.getElementById('mt-category').onchange = function() {
+    const subs = _ticketCategories.filter(c => c.parent_id === this.value && c.is_active);
+    document.getElementById('mt-subcategory').innerHTML = '<option value="">— välj —</option>' + subs.map(c =>
+      `<option value="${c.id}">${escapeHtml(c.name)}</option>`
+    ).join('');
+  };
+  document.getElementById('mt-title-input').value = '';
+  document.getElementById('mt-description').value = '';
+  document.getElementById('mt-type').value = 'incident';
+  document.getElementById('mt-priority').value = 'medium';
+  openModal('modal-ticket');
+}
+
+async function saveNewTicket() {
+  const title = document.getElementById('mt-title-input').value.trim();
+  const customerId = document.getElementById('mt-customer').value;
+  if (!title) { t('Titel krävs', 'err'); return; }
+  if (!customerId) { t('Välj kund', 'err'); return; }
+  try {
+    const newTk = await api('/api/tickets', {
+      method: 'POST',
+      body: JSON.stringify({
+        customer_id: customerId,
+        title,
+        description: document.getElementById('mt-description').value || null,
+        type: document.getElementById('mt-type').value,
+        priority: document.getElementById('mt-priority').value,
+        category_id: document.getElementById('mt-category').value || null,
+        subcategory_id: document.getElementById('mt-subcategory').value || null,
+      }),
+    });
+    closeModal('modal-ticket');
+    t('Ärende skapat: ' + newTk.ticket_number);
+    _tickets.unshift(newTk);
+    renderTicketsTable();
+    openTicketDetail(newTk.id);
+  } catch(e) { t(e.message, 'err'); }
+}
+
+// ── Inställningar: kategorier ────────────────────────────────────────────────
+
+let _settingsCategories = [];
+let _settingsSla = [];
+
+async function loadTicketSettings() {
+  [_settingsCategories, _settingsSla] = await Promise.all([
+    api('/api/ticket-settings/categories'),
+    api('/api/ticket-settings/sla'),
+  ]);
+  renderCategorySettings();
+  renderSlaSettings();
+}
+
+function renderCategorySettings() {
+  const el = document.getElementById('s-ticket-cats');
+  if (!el) return;
+  const top = _settingsCategories.filter(c => !c.parent_id).sort((a,b) => a.position - b.position);
+  if (!top.length) { el.innerHTML = '<div style="color:var(--muted);font-size:13px">Inga kategorier.</div>'; return; }
+  el.innerHTML = top.map(c => {
+    const subs = _settingsCategories.filter(s => s.parent_id === c.id);
+    const subHtml = subs.map(s => `
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 0 5px 20px;border-bottom:1px solid var(--border)">
+        <i class="ti ${s.icon}" style="color:${s.color};font-size:14px"></i>
+        <input class="fi" value="${escapeHtml(s.name)}" id="cat-name-${s.id}" style="flex:1;padding:4px 8px;font-size:12px"
+          onblur="saveCategoryName('${s.id}')" onkeydown="if(event.key==='Enter')this.blur()">
+        <button class="btn btn-danger btn-sm btn-ico" onclick="deleteCategory('${s.id}')"><i class="ti ti-trash"></i></button>
+      </div>`).join('');
+    return `<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--hover)">
+        <i class="ti ${c.icon}" style="color:${c.color};font-size:15px"></i>
+        <input class="fi" value="${escapeHtml(c.name)}" id="cat-name-${c.id}" style="flex:1;padding:4px 8px;font-weight:600"
+          onblur="saveCategoryName('${c.id}')" onkeydown="if(event.key==='Enter')this.blur()">
+        <button class="btn btn-g btn-sm" onclick="addSubcategory('${c.id}')"><i class="ti ti-plus"></i> Underkategori</button>
+        <button class="btn btn-danger btn-sm btn-ico" onclick="deleteCategory('${c.id}')"><i class="ti ti-trash"></i></button>
+      </div>
+      ${subHtml}
+    </div>`;
+  }).join('');
+}
+
+async function saveCategoryName(id) {
+  const input = document.getElementById('cat-name-' + id);
+  const cat = _settingsCategories.find(c => c.id === id);
+  if (!cat || !input || input.value.trim() === cat.name) return;
+  try {
+    await api('/api/ticket-settings/categories/' + id, {
+      method: 'PUT', body: JSON.stringify({ ...cat, name: input.value.trim() }),
+    });
+    cat.name = input.value.trim();
+    t('Kategori sparad');
+  } catch(e) { t(e.message, 'err'); input.value = cat.name; }
+}
+
+async function addTopCategory() {
+  const name = document.getElementById('s-new-cat-name').value.trim();
+  if (!name) return;
+  try {
+    const cat = await api('/api/ticket-settings/categories', {
+      method: 'POST', body: JSON.stringify({ name, position: _settingsCategories.filter(c=>!c.parent_id).length }),
+    });
+    _settingsCategories.push(cat);
+    _ticketCategories = [];
+    document.getElementById('s-new-cat-name').value = '';
+    renderCategorySettings();
+    t('Kategori tillagd');
+  } catch(e) { t(e.message, 'err'); }
+}
+
+async function addSubcategory(parentId) {
+  const name = prompt('Namn på underkategori:');
+  if (!name?.trim()) return;
+  try {
+    const cat = await api('/api/ticket-settings/categories', {
+      method: 'POST', body: JSON.stringify({ name: name.trim(), parent_id: parentId, position: 0 }),
+    });
+    _settingsCategories.push(cat);
+    _ticketCategories = [];
+    renderCategorySettings();
+    t('Underkategori tillagd');
+  } catch(e) { t(e.message, 'err'); }
+}
+
+async function deleteCategory(id) {
+  if (!confirm('Ta bort kategori?')) return;
+  try {
+    await api('/api/ticket-settings/categories/' + id, { method: 'DELETE' });
+    _settingsCategories = _settingsCategories.filter(c => c.id !== id && c.parent_id !== id);
+    _ticketCategories = [];
+    renderCategorySettings();
+    t('Kategori borttagen');
+  } catch(e) { t(e.message, 'err'); }
+}
+
+function renderSlaSettings() {
+  const el = document.getElementById('s-sla-list');
+  if (!el) return;
+  const order = ['critical','high','medium','low'];
+  const slas = [..._settingsSla].sort((a,b) => order.indexOf(a.priority) - order.indexOf(b.priority));
+  el.innerHTML = slas.map(s => `
+    <div style="display:grid;grid-template-columns:100px 1fr 1fr auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span class="b ${PRIO_CLS[s.priority]||''}" style="font-size:11px">${PRIO_LABEL[s.priority]||s.priority}</span>
+      <label style="font-size:12px">Respons (h): <input class="fi" type="number" min="1" value="${s.response_hours}" id="sla-resp-${s.id}" style="width:70px;padding:4px 8px" onblur="saveSla('${s.id}')"></label>
+      <label style="font-size:12px">Lösning (h): <input class="fi" type="number" min="1" value="${s.resolution_hours}" id="sla-resol-${s.id}" style="width:70px;padding:4px 8px" onblur="saveSla('${s.id}')"></label>
+      <span></span>
+    </div>`).join('');
+}
+
+async function saveSla(id) {
+  const sla = _settingsSla.find(s => s.id === id);
+  if (!sla) return;
+  const resp  = parseInt(document.getElementById('sla-resp-' + id)?.value);
+  const resol = parseInt(document.getElementById('sla-resol-' + id)?.value);
+  if (!resp || !resol) return;
+  try {
+    await api('/api/ticket-settings/sla/' + id, {
+      method: 'PUT', body: JSON.stringify({ ...sla, response_hours: resp, resolution_hours: resol }),
+    });
+    sla.response_hours = resp; sla.resolution_hours = resol;
+    t('SLA sparad');
+  } catch(e) { t(e.message, 'err'); }
+}
 </script>
 
 <script>

@@ -29,6 +29,7 @@ async def init_db() -> None:
         ]:
             await conn.execute(text(stmt))
     await _seed_phase_templates()
+    await _seed_ticket_defaults()
 
 
 async def _seed_phase_templates() -> None:
@@ -62,6 +63,50 @@ async def _seed_phase_templates() -> None:
                 )
         await session.commit()
 
+
+
+async def _seed_ticket_defaults() -> None:
+    """Skapa standard SLA-policyer och ärendekategorier om de saknas."""
+    from app.db.models import TicketSlaPolicy, TicketCategory
+    from sqlalchemy import select, func as sqlfunc
+    import uuid as _uuid_mod
+
+    async with AsyncSessionLocal() as session:
+        sla_count = await session.scalar(
+            select(sqlfunc.count()).select_from(TicketSlaPolicy)
+        )
+        if not sla_count:
+            defaults = [
+                ("Critical", "critical", 1, 4),
+                ("High",     "high",     4, 8),
+                ("Medium",   "medium",   8, 24),
+                ("Low",      "low",      24, 72),
+            ]
+            for name, prio, resp, resol in defaults:
+                session.add(TicketSlaPolicy(
+                    id=str(_uuid_mod.uuid4()),
+                    name=name, priority=prio,
+                    response_hours=resp, resolution_hours=resol,
+                    is_default=True,
+                ))
+
+        cat_count = await session.scalar(
+            select(sqlfunc.count()).select_from(TicketCategory)
+        )
+        if not cat_count:
+            categories = [
+                ("Nätverk",      "#3b82f6", "ti-network"),
+                ("Server",       "#8b5cf6", "ti-server"),
+                ("Säkerhet",     "#ef4444", "ti-shield"),
+                ("E-post",       "#f59e0b", "ti-mail"),
+                ("Övrigt",       "#6b7280", "ti-dots"),
+            ]
+            for name, color, icon in categories:
+                session.add(TicketCategory(
+                    id=str(_uuid_mod.uuid4()),
+                    name=name, color=color, icon=icon,
+                ))
+        await session.commit()
 
 
 async def get_db():

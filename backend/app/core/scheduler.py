@@ -23,6 +23,14 @@ def start_scheduler() -> None:
         logger.info("Schemalagd rapportkörning startar")
         await run_all_reports()
 
+    async def _poll_ticket_inbox():
+        from app.graph.ticket_inbox import poll_support_inbox
+        await poll_support_inbox()
+
+    async def _check_sla_breaches():
+        from app.core.sla_checker import check_sla_breaches
+        await check_sla_breaches()
+
     _scheduler.add_job(
         _run_monthly_reports,
         trigger=CronTrigger(
@@ -32,6 +40,20 @@ def start_scheduler() -> None:
             timezone="Europe/Stockholm",
         ),
         id="monthly_reports",
+        replace_existing=True,
+    )
+    _scheduler.add_job(
+        _poll_ticket_inbox,
+        trigger="interval",
+        minutes=2,
+        id="ticket_inbox_poll",
+        replace_existing=True,
+    )
+    _scheduler.add_job(
+        _check_sla_breaches,
+        trigger="interval",
+        minutes=15,
+        id="sla_checker",
         replace_existing=True,
     )
     _scheduler.start()

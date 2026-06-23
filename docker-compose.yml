@@ -40,6 +40,7 @@ services:
     volumes:
       - report_output:/app/reports_output
       - order_documents:/app/order_documents
+      - ticket_attachments:/app/ticket_attachments
     expose:
       - "8000"
     networks:
@@ -67,3 +68,4 @@ volumes:
   pg_data:
   report_output:
   order_documents:
+  ticket_attachments:
