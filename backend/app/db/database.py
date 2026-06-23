@@ -26,6 +26,16 @@ async def init_db() -> None:
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name VARCHAR NOT NULL DEFAULT ''",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR NOT NULL DEFAULT 'admin'",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS customer_id VARCHAR REFERENCES customers(id)",
+            # Migrate ticket timestamp columns to TIMESTAMPTZ (idempotent via USING clause)
+            "ALTER TABLE tickets ALTER COLUMN sla_due_at TYPE TIMESTAMPTZ USING sla_due_at AT TIME ZONE 'UTC'",
+            "ALTER TABLE tickets ALTER COLUMN first_responded_at TYPE TIMESTAMPTZ USING first_responded_at AT TIME ZONE 'UTC'",
+            "ALTER TABLE tickets ALTER COLUMN resolved_at TYPE TIMESTAMPTZ USING resolved_at AT TIME ZONE 'UTC'",
+            "ALTER TABLE tickets ALTER COLUMN closed_at TYPE TIMESTAMPTZ USING closed_at AT TIME ZONE 'UTC'",
+            "ALTER TABLE tickets ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC'",
+            "ALTER TABLE tickets ALTER COLUMN updated_at TYPE TIMESTAMPTZ USING updated_at AT TIME ZONE 'UTC'",
+            "ALTER TABLE ticket_messages ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC'",
+            "ALTER TABLE ticket_attachments ALTER COLUMN uploaded_at TYPE TIMESTAMPTZ USING uploaded_at AT TIME ZONE 'UTC'",
+            "ALTER TABLE ticket_history ALTER COLUMN changed_at TYPE TIMESTAMPTZ USING changed_at AT TIME ZONE 'UTC'",
         ]:
             await conn.execute(text(stmt))
     await _seed_phase_templates()

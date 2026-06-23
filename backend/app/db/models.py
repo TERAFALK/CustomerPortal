@@ -288,14 +288,14 @@ class Ticket(Base):
     source_email: Mapped[str | None] = mapped_column(String, nullable=True)
     source: Mapped[str] = mapped_column(String, default="portal")  # portal|email
     # SLA
-    sla_due_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    sla_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sla_breached: Mapped[bool] = mapped_column(Boolean, default=False)
-    first_responded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    first_responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
     customer: Mapped["Customer"] = relationship()
@@ -334,7 +334,7 @@ class TicketMessage(Base):
     source: Mapped[str] = mapped_column(String, default="portal")  # portal|email
     # Graph message-id för att undvika dubbletter vid polling
     email_message_id: Mapped[str | None] = mapped_column(String, nullable=True, unique=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     ticket: Mapped["Ticket"] = relationship(back_populates="messages")
     author: Mapped["User | None"] = relationship()
@@ -360,7 +360,7 @@ class TicketAttachment(Base):
     mime_type: Mapped[str] = mapped_column(String, default="application/octet-stream")
     file_path: Mapped[str] = mapped_column(String, nullable=False)
     uploaded_by: Mapped[str | None] = mapped_column(String, ForeignKey("users.id"), nullable=True)
-    uploaded_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     ticket: Mapped["Ticket"] = relationship(back_populates="attachments")
     message: Mapped["TicketMessage | None"] = relationship(
@@ -381,6 +381,6 @@ class TicketHistory(Base):
     field_changed: Mapped[str] = mapped_column(String, nullable=False)
     old_value: Mapped[str | None] = mapped_column(String, nullable=True)
     new_value: Mapped[str | None] = mapped_column(String, nullable=True)
-    changed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     ticket: Mapped["Ticket"] = relationship(back_populates="history")
