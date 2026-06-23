@@ -1415,58 +1415,56 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
 <!-- ══ MODALER ══ -->
 
 <!-- Modal: Nytt ärende -->
-<div class="modal-backdrop" id="modal-ticket" style="display:none" onclick="if(event.target===this)closeModal('modal-ticket')">
-  <div class="modal" style="max-width:540px">
-    <div class="modal-header">
-      <span id="mt-title">Nytt ärende</span>
-      <button class="modal-close" onclick="closeModal('modal-ticket')"><i class="ti ti-x"></i></button>
+<div id="modal-ticket" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:500;align-items:center;justify-content:center" onclick="if(event.target===this)closeModal('modal-ticket')">
+  <div style="background:#fff;border-radius:12px;padding:28px;width:520px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,0.2);max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div style="font-size:16px;font-weight:700">Nytt ärende</div>
+      <button class="btn btn-g btn-sm btn-ico" onclick="closeModal('modal-ticket')"><i class="ti ti-x"></i></button>
     </div>
-    <div class="modal-body">
-      <div class="fr">
-        <label class="fl">Kund <span class="req">*</span></label>
-        <select class="fi" id="mt-customer"></select>
+    <div class="fr">
+      <label class="fl">Kund *</label>
+      <select class="fi" id="mt-customer"></select>
+    </div>
+    <div class="fr">
+      <label class="fl">Titel *</label>
+      <input class="fi" id="mt-title-input" placeholder="Kort beskrivning av ärendet">
+    </div>
+    <div class="fr">
+      <label class="fl">Beskrivning</label>
+      <textarea class="fi" id="mt-description" rows="4" placeholder="Detaljerad beskrivning…" style="resize:vertical"></textarea>
+    </div>
+    <div class="f2">
+      <div class="fr" style="margin:0">
+        <label class="fl">Typ</label>
+        <select class="fi" id="mt-type">
+          <option value="incident">Incident</option>
+          <option value="service_request">Serviceförfrågan</option>
+          <option value="change">Ändringsärende</option>
+          <option value="problem">Problem</option>
+          <option value="information">Informationsförfrågan</option>
+        </select>
       </div>
-      <div class="fr">
-        <label class="fl">Titel <span class="req">*</span></label>
-        <input class="fi" id="mt-title-input" placeholder="Kort beskrivning av ärendet">
-      </div>
-      <div class="fr">
-        <label class="fl">Beskrivning</label>
-        <textarea class="fi" id="mt-description" rows="4" placeholder="Detaljerad beskrivning…" style="resize:vertical"></textarea>
-      </div>
-      <div class="f2">
-        <div class="fr" style="margin:0">
-          <label class="fl">Typ</label>
-          <select class="fi" id="mt-type">
-            <option value="incident">Incident</option>
-            <option value="service_request">Serviceförfrågan</option>
-            <option value="change">Ändringsärende</option>
-            <option value="problem">Problem</option>
-            <option value="information">Informationsförfrågan</option>
-          </select>
-        </div>
-        <div class="fr" style="margin:0">
-          <label class="fl">Prioritet</label>
-          <select class="fi" id="mt-priority">
-            <option value="low">Låg</option>
-            <option value="medium" selected>Medium</option>
-            <option value="high">Hög</option>
-            <option value="critical">Kritisk</option>
-          </select>
-        </div>
-      </div>
-      <div class="f2">
-        <div class="fr" style="margin:0">
-          <label class="fl">Kategori</label>
-          <select class="fi" id="mt-category"><option value="">— välj —</option></select>
-        </div>
-        <div class="fr" style="margin:0">
-          <label class="fl">Underkategori</label>
-          <select class="fi" id="mt-subcategory"><option value="">— välj —</option></select>
-        </div>
+      <div class="fr" style="margin:0">
+        <label class="fl">Prioritet</label>
+        <select class="fi" id="mt-priority">
+          <option value="low">Låg</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">Hög</option>
+          <option value="critical">Kritisk</option>
+        </select>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="f2">
+      <div class="fr" style="margin:0">
+        <label class="fl">Kategori</label>
+        <select class="fi" id="mt-category"><option value="">— välj —</option></select>
+      </div>
+      <div class="fr" style="margin:0">
+        <label class="fl">Underkategori</label>
+        <select class="fi" id="mt-subcategory"><option value="">— välj —</option></select>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
       <button class="btn btn-g" onclick="closeModal('modal-ticket')">Avbryt</button>
       <button class="btn btn-p" onclick="saveNewTicket()"><i class="ti ti-check"></i> Skapa ärende</button>
     </div>
