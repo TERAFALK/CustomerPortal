@@ -56,7 +56,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
 .sidebar.collapsed{width:56px}
 .sb-logo{padding:22px 22px 20px;display:flex;align-items:center;gap:10px;white-space:nowrap}
 .sidebar.collapsed .sb-logo{padding:16px 12px;justify-content:center}
-.sidebar.collapsed .sb-logo svg,.sidebar.collapsed .sb-logo div{display:none}
+.sidebar.collapsed .sb-logo svg,.sidebar.collapsed .sb-logo>div:not(.sb-toggle){display:none}
 .sb-section{font-size:10px;font-weight:700;letter-spacing:0.11em;text-transform:uppercase;color:var(--muted);padding:18px 22px 8px;white-space:nowrap;overflow:hidden}
 .sidebar.collapsed .sb-section{visibility:hidden;height:0;padding:0;margin:8px 0 0}
 .nav{display:flex;align-items:center;gap:11px;margin:1px 12px;padding:9px 12px;color:var(--sub);cursor:pointer;font-size:13px;font-weight:500;transition:all 0.12s;user-select:none;border-radius:var(--r);white-space:nowrap;overflow:hidden}
@@ -4294,14 +4294,19 @@ function renderTicketDetail() {
     // _updateSubcatOptions skriver subcatSel.innerHTML — handlers är fortfarande null
     _updateSubcatOptions(tk.category?.id, tk.subcategory?.id);
 
-    // Sätt handlers SIST, efter att all DOM är klar
-    subcatSel.onchange = () => updateTicketField('subcategory_id', subcatSel.value || null);
-    catSel.onchange = () => {
-      subcatSel.onchange = null;
-      _updateSubcatOptions(catSel.value, null);
+    // setTimeout(0) låter webbläsaren tömma eventkön (köade change-events från innerHTML-rebuild)
+    // innan vi kopplar tillbaka handlers — annars avfyras de köade events direkt på de nya handlers
+    setTimeout(() => {
       subcatSel.onchange = () => updateTicketField('subcategory_id', subcatSel.value || null);
-      updateTicketField('category_id', catSel.value || null);
-    };
+      catSel.onchange = () => {
+        subcatSel.onchange = null;
+        _updateSubcatOptions(catSel.value, null);
+        setTimeout(() => {
+          subcatSel.onchange = () => updateTicketField('subcategory_id', subcatSel.value || null);
+        }, 0);
+        updateTicketField('category_id', catSel.value || null);
+      };
+    }, 0);
 
     // Tilldelad
     const assignSel = document.getElementById('td-assign-sel');
