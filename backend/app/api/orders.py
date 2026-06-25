@@ -103,6 +103,8 @@ async def list_orders(
     q = select(Order).options(
         selectinload(Order.customer),
         selectinload(Order.current_phase),
+        selectinload(Order.assigned_to),
+        selectinload(Order.contacts).selectinload(OrderContact.contact),
     )
     if user.role != "admin":
         q = q.where(Order.customer_id == user.customer_id)
