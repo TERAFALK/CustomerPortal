@@ -40,6 +40,8 @@ class ContactCreate(BaseModel):
     email: str
     phone: str = ""
     title: str = ""
+    receives_reports: bool = False
+    has_portal_access: bool = False
 
 
 class ContactUpdate(BaseModel):
@@ -47,6 +49,15 @@ class ContactUpdate(BaseModel):
     email: str | None = None
     phone: str | None = None
     title: str | None = None
+    receives_reports: bool | None = None
+    has_portal_access: bool | None = None
+
+
+def _contact_dict(c: "CustomerContact") -> dict:
+    return {
+        "id": c.id, "name": c.name, "email": c.email, "phone": c.phone, "title": c.title,
+        "receives_reports": c.receives_reports, "has_portal_access": c.has_portal_access,
+    }
 
 
 class CredentialUpsert(BaseModel):
@@ -201,10 +212,7 @@ async def list_contacts(
         .where(CustomerContact.customer_id == customer_id, CustomerContact.is_active == True)
         .order_by(CustomerContact.name)
     )
-    return [
-        {"id": c.id, "name": c.name, "email": c.email, "phone": c.phone, "title": c.title}
-        for c in contacts.all()
-    ]
+    return [_contact_dict(c) for c in contacts.all()]
 
 
 @router.post("/{customer_id}/contacts", status_code=201)
@@ -218,7 +226,7 @@ async def create_contact(
     db.add(c)
     await db.commit()
     await db.refresh(c)
-    return {"id": c.id, "name": c.name, "email": c.email, "phone": c.phone, "title": c.title}
+    return _contact_dict(c)
 
 
 @router.put("/{customer_id}/contacts/{contact_id}")
@@ -236,7 +244,7 @@ async def update_contact(
         setattr(c, field, value)
     await db.commit()
     await db.refresh(c)
-    return {"id": c.id, "name": c.name, "email": c.email, "phone": c.phone, "title": c.title}
+    return _contact_dict(c)
 
 
 @router.delete("/{customer_id}/contacts/{contact_id}", status_code=204)

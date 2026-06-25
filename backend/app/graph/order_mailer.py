@@ -61,10 +61,7 @@ async def _notify(event_type: str, order, subject: str, content: str) -> None:
 
     recipients: list[tuple[str, str]] = []
 
-    if cfg.notify_customer and order.customer and order.customer.contact_email:
-        recipients.append((order.customer.contact_email, order.customer.name))
-
-    # Orderspecifika kontakter
+    # Skicka enbart till kontakter som är kopplade till ordern
     if cfg.notify_customer:
         for oc in (order.contacts or []):
             c = oc.contact

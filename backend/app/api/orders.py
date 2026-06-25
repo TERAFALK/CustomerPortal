@@ -280,6 +280,7 @@ async def set_phase(
         raise HTTPException(status_code=404, detail="Fas hittades inte")
     if phase.order_type != order.type:
         raise HTTPException(status_code=400, detail="Fas tillhör fel ordertyp")
+    old_phase_name = order.current_phase.name if order.current_phase else None
     order.current_phase_id = body.phase_id
 
     # Sätt status till completed om det är sista fasen för denna ordertyp
@@ -288,7 +289,6 @@ async def set_phase(
         .where(OrderPhaseTemplate.order_type == order.type)
         .order_by(OrderPhaseTemplate.position.desc())
     )
-    old_phase_name = order.current_phase.name if order.current_phase else None
     if last_phase and last_phase.id == body.phase_id:
         order.status = "completed"
     elif order.status == "completed":
@@ -299,8 +299,7 @@ async def set_phase(
 
     try:
         from app.graph.order_mailer import send_order_phase_changed
-        new_phase_name = order.current_phase.name if order.current_phase else None
-        await send_order_phase_changed(order, old_phase_name, new_phase_name)
+        await send_order_phase_changed(order, old_phase_name, phase.name)
     except Exception:
         pass
 

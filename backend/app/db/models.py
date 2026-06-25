@@ -67,6 +67,8 @@ class CustomerContact(Base):
     phone: Mapped[str] = mapped_column(String, default="")
     title: Mapped[str] = mapped_column(String, default="")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    receives_reports: Mapped[bool] = mapped_column(Boolean, default=False)
+    has_portal_access: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     customer: Mapped["Customer"] = relationship(back_populates="contacts")

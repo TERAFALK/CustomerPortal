@@ -21,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.db.database import AsyncSessionLocal
-from app.db.models import Customer, Report
+from app.db.models import Customer, CustomerContact, Report
 from app.graph.sender import send_report_email
 from app.integrations.registry import INTEGRATIONS, get_client
 from app.reports.pdf_generator import generate_pdf
@@ -125,21 +125,48 @@ async def _generate_report(customer_id: str) -> None:
         month_cap = month_display.get(month_num, month_num)
         included = ", ".join(INTEGRATIONS[k].display_name for k in sections.keys())
 
-        try:
-            await send_report_email(
-                to_email=customer.contact_email,
-                to_name=customer.contact_name or customer.name,
-                subject=f"IT-Rapport {month_cap} {year} — {customer.name}",
-                body_html=_email_body(customer.name, month_sv, year, included),
-                pdf_path=pdf_path,
-                pdf_filename=f"{customer.name} - {period}.pdf",
+        # Hämta alla rapportmottagare för kunden
+        report_contacts = (await db.scalars(
+            select(CustomerContact)
+            .where(
+                CustomerContact.customer_id == customer_id,
+                CustomerContact.receives_reports == True,
+                CustomerContact.is_active == True,
             )
+        )).all()
+
+        # Fallback till customer.contact_email om inga kontakter är markerade
+        if report_contacts:
+            recipients = [(c.email, c.name) for c in report_contacts]
+        else:
+            recipients = [(customer.contact_email, customer.contact_name or customer.name)]
+
+        subject = f"IT-Rapport {month_cap} {year} — {customer.name}"
+        body_html = _email_body(customer.name, month_sv, year, included)
+        filename = f"{customer.name} - {period}.pdf"
+        any_sent = False
+        last_error = None
+        for to_email, to_name in recipients:
+            try:
+                await send_report_email(
+                    to_email=to_email,
+                    to_name=to_name,
+                    subject=subject,
+                    body_html=body_html,
+                    pdf_path=pdf_path,
+                    pdf_filename=filename,
+                )
+                any_sent = True
+            except Exception as e:
+                logger.error("Graph-utskick misslyckades för %s → %s: %s", customer.name, to_email, e)
+                last_error = e
+
+        if any_sent:
             report.send_status = "sent"
             report.sent_at = now_stockholm()
-        except Exception as e:
-            logger.error("Graph-utskick misslyckades för %s: %s", customer.name, e)
+        else:
             report.send_status = "error"
-            report.error_message = str(e)
+            report.error_message = str(last_error)
 
         await db.commit()
         logger.info("Rapport klar för %s (%s) — sektioner: %s", customer.name, period, list(sections.keys()))
