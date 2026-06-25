@@ -1003,9 +1003,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
           <div class="fr" style="margin:0"><label class="fl">Kontaktperson</label><input class="fi" id="ac-contact" placeholder="Förnamn Efternamn"></div>
           <div class="fr" style="margin:0"><label class="fl">Ort</label><input class="fi" id="ac-city" placeholder="Lidköping"></div>
         </div>
-        <hr class="fdiv">
-        <div class="fr"><label class="fl">E-postadress (rapportmottagare)</label><input class="fi" id="ac-email" type="email" placeholder="kontakt@foretaget.se"></div>
-        <div class="fh" style="margin-bottom:14px">Integrationer (UniFi, Microsoft 365, Acronis) läggs till efter att kunden skapats under <strong>Integrationer</strong>.</div>
+        <div class="fh" style="margin-bottom:14px">Integrationer (UniFi, Microsoft 365, Acronis) läggs till efter att kunden skapats under <strong>Integrationer</strong>. Rapportmottagare hanteras under kundens <strong>Kontakter</strong>-flik.</div>
         <div style="display:flex;gap:9px;margin-top:14px">
           <button class="btn btn-p" id="ac-submit-btn" onclick="submitNewCustomer()"><i class="ti ti-check"></i> Spara</button>
           <button class="btn btn-g" onclick="nav('customers')">Avbryt</button>
@@ -1024,8 +1022,6 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
           <div class="fr" style="margin:0"><label class="fl">Kontaktperson</label><input class="fi" id="ec-contact" placeholder="Förnamn Efternamn"></div>
           <div class="fr" style="margin:0"><label class="fl">Ort</label><input class="fi" id="ec-city" placeholder="Lidköping"></div>
         </div>
-        <hr class="fdiv">
-        <div class="fr"><label class="fl">E-postadress (rapportmottagare)</label><input class="fi" id="ec-email" type="email" placeholder="kontakt@foretaget.se"></div>
         <div style="display:flex;gap:9px;margin-top:14px">
           <button class="btn btn-p" id="ec-submit-btn" onclick="submitEditCustomer()"><i class="ti ti-check"></i> Spara ändringar</button>
           <button class="btn btn-g" onclick="nav('customer-detail')">Avbryt</button>
@@ -2140,7 +2136,7 @@ async function loadCustomersList() {
 // ── Ny kund ───────────────────────────────────────────────────────────────
 
 function resetAddCustomerForm() {
-  ['ac-name', 'ac-contact', 'ac-city', 'ac-email'].forEach(id => {
+  ['ac-name', 'ac-contact', 'ac-city'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -2151,13 +2147,12 @@ async function submitNewCustomer() {
   const name = document.getElementById('ac-name').value.trim();
   const contact_name = document.getElementById('ac-contact').value.trim();
   const city = document.getElementById('ac-city').value.trim();
-  const contact_email = document.getElementById('ac-email').value.trim();
   const errEl = document.getElementById('ac-error');
   const errMsg = document.getElementById('ac-error-msg');
   errEl.style.display = 'none';
 
-  if (!name || !contact_email) {
-    errMsg.textContent = 'Företagsnamn och e-postadress krävs.';
+  if (!name) {
+    errMsg.textContent = 'Företagsnamn krävs.';
     errEl.style.display = 'block';
     return;
   }
@@ -2169,11 +2164,12 @@ async function submitNewCustomer() {
   try {
     const created = await api('/api/customers', {
       method: 'POST',
-      body: JSON.stringify({ name, contact_name, city, contact_email })
+      body: JSON.stringify({ name, contact_name, city, contact_email: '' })
     });
-    t(`${name} skapad — lägg till integrationer under kundens sida`);
+    t(`${name} skapad — lägg till kontakter och integrationer under kundens sida`);
     currentCustomerId = created.id;
-    nav('integrations');
+    nav('customer-detail');
+    loadCustomerDetail(created.id);
   } catch (e) {
     errMsg.textContent = e.message;
     errEl.style.display = 'block';
@@ -2205,7 +2201,6 @@ function openEditCustomer() {
     document.getElementById('ec-name').value = customer.name || '';
     document.getElementById('ec-contact').value = customer.contact_name || '';
     document.getElementById('ec-city').value = customer.city || '';
-    document.getElementById('ec-email').value = customer.contact_email || '';
     document.getElementById('ec-error').style.display = 'none';
     nav('edit-customer');
   }).catch(e => errToast('Kunde inte ladda kundinfo', e));
@@ -2215,13 +2210,12 @@ async function submitEditCustomer() {
   const name = document.getElementById('ec-name').value.trim();
   const contact_name = document.getElementById('ec-contact').value.trim();
   const city = document.getElementById('ec-city').value.trim();
-  const contact_email = document.getElementById('ec-email').value.trim();
   const errEl = document.getElementById('ec-error');
   const errMsg = document.getElementById('ec-error-msg');
   errEl.style.display = 'none';
 
-  if (!name || !contact_email) {
-    errMsg.textContent = 'Företagsnamn och e-postadress krävs.';
+  if (!name) {
+    errMsg.textContent = 'Företagsnamn krävs.';
     errEl.style.display = 'block';
     return;
   }
@@ -2233,7 +2227,7 @@ async function submitEditCustomer() {
   try {
     await api(`/api/customers/${currentCustomerId}`, {
       method: 'PUT',
-      body: JSON.stringify({ name, contact_name, city, contact_email })
+      body: JSON.stringify({ name, contact_name, city })
     });
     t(`${name} uppdaterad`);
     nav('customer-detail');

@@ -24,7 +24,7 @@ router = APIRouter()
 class CustomerCreate(BaseModel):
     name: str
     contact_name: str = ""
-    contact_email: str
+    contact_email: str = ""
     city: str = ""
 
 
@@ -220,7 +220,7 @@ async def list_contacts(
 
 async def _sync_portal_user(c: CustomerContact, password: str | None, customer_id: str, db: AsyncSession) -> None:
     """Skapa, uppdatera eller inaktivera portalanvändare baserat på has_portal_access."""
-    from app.core.security import get_password_hash
+    from app.core.security import hash_password
     if c.has_portal_access:
         if c.user_id:
             # Uppdatera befintlig användare
@@ -230,7 +230,7 @@ async def _sync_portal_user(c: CustomerContact, password: str | None, customer_i
                 u.email = c.email
                 u.is_active = True
                 if password:
-                    u.hashed_password = get_password_hash(password)
+                    u.hashed_password = hash_password(password)
                 return
         # Skapa ny användare
         if not password:
@@ -245,13 +245,13 @@ async def _sync_portal_user(c: CustomerContact, password: str | None, customer_i
             existing.role = "customer"
             existing.is_active = True
             if password:
-                existing.hashed_password = get_password_hash(password)
+                existing.hashed_password = hash_password(password)
             c.user_id = existing.id
         else:
-            from app.core.security import get_password_hash
+            from app.core.security import hash_password
             u = User(
                 email=c.email,
-                hashed_password=get_password_hash(password),
+                hashed_password=hash_password(password),
                 full_name=c.name,
                 role="customer",
                 customer_id=customer_id,
