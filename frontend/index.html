@@ -52,23 +52,35 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
 
 /* ── Layout ── */
 .app{display:flex;min-height:100vh}
-.sidebar{width:228px;background:var(--sb-bg);border-right:1px solid var(--sb-border);display:flex;flex-direction:column;flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto}
-.sb-logo{padding:22px 22px 20px}
-.sb-section{font-size:10px;font-weight:700;letter-spacing:0.11em;text-transform:uppercase;color:var(--muted);padding:18px 22px 8px}
-.nav{display:flex;align-items:center;gap:11px;margin:1px 12px;padding:9px 12px;color:var(--sub);cursor:pointer;font-size:13px;font-weight:500;transition:all 0.12s;user-select:none;border-radius:var(--r)}
+.sidebar{width:228px;background:var(--sb-bg);border-right:1px solid var(--sb-border);display:flex;flex-direction:column;flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto;transition:width 0.2s cubic-bezier(0.4,0,0.2,1);overflow-x:hidden}
+.sidebar.collapsed{width:56px}
+.sb-logo{padding:22px 22px 20px;display:flex;align-items:center;gap:10px;white-space:nowrap}
+.sidebar.collapsed .sb-logo{padding:16px 12px;justify-content:center}
+.sidebar.collapsed .sb-logo svg,.sidebar.collapsed .sb-logo div{display:none}
+.sb-section{font-size:10px;font-weight:700;letter-spacing:0.11em;text-transform:uppercase;color:var(--muted);padding:18px 22px 8px;white-space:nowrap;overflow:hidden}
+.sidebar.collapsed .sb-section{visibility:hidden;height:0;padding:0;margin:8px 0 0}
+.nav{display:flex;align-items:center;gap:11px;margin:1px 12px;padding:9px 12px;color:var(--sub);cursor:pointer;font-size:13px;font-weight:500;transition:all 0.12s;user-select:none;border-radius:var(--r);white-space:nowrap;overflow:hidden}
 .nav:hover{color:var(--text);background:var(--tint)}
 .nav.active{color:var(--blue);background:var(--tint2);font-weight:600}
 .nav i{font-size:17px;flex-shrink:0;opacity:0.75}
 .nav.active i{opacity:1}
+.sidebar.collapsed .nav{margin:1px 6px;padding:9px;justify-content:center;gap:0}
+.sidebar.collapsed .nav span,.sidebar.collapsed .nav-label{display:none}
 .sb-space{flex:1}
 .sb-bottom{padding:14px 16px;border-top:1px solid var(--sb-border)}
-.sb-user{display:flex;align-items:center;gap:10px;cursor:pointer;padding:6px 8px;border-radius:var(--r);transition:background 0.12s}
+.sidebar.collapsed .sb-bottom{padding:10px 6px}
+.sb-user{display:flex;align-items:center;gap:10px;cursor:pointer;padding:6px 8px;border-radius:var(--r);transition:background 0.12s;white-space:nowrap;overflow:hidden}
 .sb-user:hover{background:var(--tint)}
+.sidebar.collapsed .sb-user{justify-content:center;gap:0;padding:6px}
+.sidebar.collapsed .sb-user-info{display:none}
 .avatar{width:32px;height:32px;border-radius:8px;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
 .u-name{font-size:12px;font-weight:600;color:var(--text);transition:color 0.12s}
 .u-role{font-size:10px;color:var(--muted)}
+.sb-toggle{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--r);border:1px solid var(--border-s);background:var(--surface);cursor:pointer;color:var(--sub);flex-shrink:0;transition:all 0.12s;margin-left:auto}
+.sb-toggle:hover{background:var(--tint);color:var(--text)}
+.sidebar.collapsed .sb-toggle{margin:0 auto}
 
-.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;transition:none}
 .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 30px;height:56px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .page-title{font-size:15px;font-weight:700;color:var(--text)}
 .tb-right{display:flex;align-items:center;gap:8px}
@@ -654,9 +666,9 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
 <!-- ═══ APP ═══ -->
 <div id="app-screen" class="app" style="display:none">
 
-<aside class="sidebar">
-  <div class="sb-logo" style="display:flex;flex-direction:column;gap:5px">
-    <svg viewBox="0 0 695.39 84.24" width="130" height="16" xmlns="http://www.w3.org/2000/svg">
+<aside class="sidebar" id="main-sidebar">
+  <div class="sb-logo">
+    <svg viewBox="0 0 695.39 84.24" width="120" height="15" xmlns="http://www.w3.org/2000/svg">
       <path fill="#141414" d="M236.18,455.57v15H201.74v69h-15v-69H152.3v-15Z" transform="translate(-152.3 -455.45)"/>
       <path fill="#141414" d="M263.3,478.13v7.8h54v15h-54v15.84a7.74,7.74,0,0,0,7.68,7.68H332.3v15H271a22.63,22.63,0,0,1-22.56-22.67V478.13A22.64,22.64,0,0,1,271,455.45H332.3v15H271A7.73,7.73,0,0,0,263.3,478.13Z" transform="translate(-152.3 -455.45)"/>
       <path fill="#141414" d="M412.1,524.69l7.68,15H403l-7.68-15-8-15.72-.36-.72a14.87,14.87,0,0,0-12.72-7.2h-15v38.63h-15v-84h53a22.53,22.53,0,0,1,22.56,22.56,22.75,22.75,0,0,1-13.2,20.64,20,20,0,0,1-6.48,1.8Zm-14.88-38.64a7,7,0,0,0,3.12-.72,7.62,7.62,0,0,0,4.56-7,7.92,7.92,0,0,0-2.28-5.52,7.56,7.56,0,0,0-5.4-2.16h-38v15.48Z" transform="translate(-152.3 -455.45)"/>
@@ -666,23 +678,23 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
       <path fill="#141414" d="M751.7,524.57v15H709.1a26.09,26.09,0,0,1-11.76-2.76,26.59,26.59,0,0,1-12.12-12.23,26.12,26.12,0,0,1-2.76-11.76V455.57h15v58.68a12,12,0,0,0,10.2,10.2Z" transform="translate(-152.3 -455.45)"/>
       <path fill="#141414" d="M811,489.17l36.35,50.27H828.85l-29-40.07-21.24,19.32v20.75h-15v-84h15v43l12.36-11.28,11.16-10.2,23.39-21.48h22.2Z" transform="translate(-152.3 -455.45)"/>
     </svg>
-    <div style="font-family:'Exo 2',sans-serif;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase">Insight</div>
+    <div class="sb-toggle" onclick="toggleSidebarCollapse()" title="Fäll in/ut meny"><i class="ti ti-layout-sidebar-left-collapse" id="sb-toggle-icon"></i></div>
   </div>
   <div class="sb-section">Hantera</div>
-  <div class="nav active" data-v="dashboard" id="nav-dashboard" onclick="nav('dashboard')"><i class="ti ti-layout-dashboard"></i> Översikt</div>
-  <div class="nav" data-v="customers" id="nav-customers" onclick="nav('customers')"><i class="ti ti-building-store"></i> Kunder</div>
-  <div class="nav" data-v="reports" id="nav-reports" onclick="nav('reports')"><i class="ti ti-file-description"></i> Rapporter</div>
-  <div class="nav" data-v="orders" id="nav-orders" onclick="nav('orders')"><i class="ti ti-clipboard-list"></i> Order & Projekt</div>
-  <div class="nav" data-v="tickets" id="nav-tickets" onclick="nav('tickets')"><i class="ti ti-ticket"></i> Ärenden</div>
+  <div class="nav active" data-v="dashboard" id="nav-dashboard" onclick="nav('dashboard')"><i class="ti ti-layout-dashboard"></i><span class="nav-label"> Översikt</span></div>
+  <div class="nav" data-v="customers" id="nav-customers" onclick="nav('customers')"><i class="ti ti-building-store"></i><span class="nav-label"> Kunder</span></div>
+  <div class="nav" data-v="reports" id="nav-reports" onclick="nav('reports')"><i class="ti ti-file-description"></i><span class="nav-label"> Rapporter</span></div>
+  <div class="nav" data-v="orders" id="nav-orders" onclick="nav('orders')"><i class="ti ti-clipboard-list"></i><span class="nav-label"> Order & Projekt</span></div>
+  <div class="nav" data-v="tickets" id="nav-tickets" onclick="nav('tickets')"><i class="ti ti-ticket"></i><span class="nav-label"> Ärenden</span></div>
   <div class="sb-section" id="nav-section-config">Konfiguration</div>
-  <div class="nav" data-v="users" id="nav-users" onclick="nav('users')"><i class="ti ti-users"></i> Användare</div>
-  <div class="nav" data-v="add-customer" id="nav-add-customer" onclick="nav('add-customer')"><i class="ti ti-plus"></i> Lägg till kund</div>
-  <div class="nav" data-v="settings" id="nav-settings" onclick="nav('settings')"><i class="ti ti-settings"></i> Inställningar</div>
+  <div class="nav" data-v="users" id="nav-users" onclick="nav('users')"><i class="ti ti-users"></i><span class="nav-label"> Användare</span></div>
+  <div class="nav" data-v="add-customer" id="nav-add-customer" onclick="nav('add-customer')"><i class="ti ti-plus"></i><span class="nav-label"> Lägg till kund</span></div>
+  <div class="nav" data-v="settings" id="nav-settings" onclick="nav('settings')"><i class="ti ti-settings"></i><span class="nav-label"> Inställningar</span></div>
   <div class="sb-space"></div>
   <div class="sb-bottom">
-    <div class="sb-user" onclick="doLogout()">
+    <div class="sb-user" onclick="doLogout()" title="Logga ut">
       <div class="avatar" id="sb-avatar">TA</div>
-      <div>
+      <div class="sb-user-info">
         <div class="u-name" id="sb-name">TERAFALK AB</div>
         <div class="u-role" id="sb-role">Logga ut</div>
       </div>
@@ -1231,153 +1243,124 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
     </div>
 
     <!-- ══ ÄRENDE – DETALJ ══ -->
-    <div class="view" id="v-ticket-detail" style="padding:0">
-      <!-- Toppbar -->
-      <div class="ticket-topbar">
+    <div class="view" id="v-ticket-detail">
+      <!-- Topprad -->
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;flex-wrap:wrap">
         <button class="btn btn-g btn-sm" onclick="nav('tickets')"><i class="ti ti-arrow-left"></i> Tillbaka</button>
         <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span id="td-number" class="ticket-id-mono"></span>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+            <span id="td-number" style="font-family:monospace;font-weight:800;font-size:14px;color:var(--blue)"></span>
             <div id="td-badges" style="display:flex;gap:5px;flex-wrap:wrap"></div>
           </div>
-          <div id="td-title-header" class="ticket-main-title"></div>
+          <div id="td-title-header" style="font-size:17px;font-weight:700;color:var(--text);line-height:1.3"></div>
         </div>
       </div>
 
-      <!-- 3-kolumn layout -->
-      <div class="ticket-layout">
+      <!-- 2-kolumn: konversation + sidebar -->
+      <div style="display:grid;grid-template-columns:1fr 300px;gap:16px;align-items:start">
 
-        <!-- ─── Vänster sidebar: info & styrning ─── -->
-        <div class="ticket-left" id="td-left-col">
-
-          <!-- Kund -->
-          <div class="tk-section">
-            <div class="tk-section-label">Kund</div>
-            <div id="td-customer-block"></div>
-          </div>
-
-          <!-- Status & prioritet -->
-          <div class="tk-section" id="td-status-section">
-            <div class="tk-row"><label class="tk-label">Status</label>
-              <select class="fi tk-sel" id="td-status-sel"></select>
-            </div>
-            <div class="tk-row"><label class="tk-label">Prioritet</label>
-              <select class="fi tk-sel" id="td-prio-sel">
-                <option value="critical">Critical</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
+        <!-- Konversation -->
+        <div>
+          <div id="td-messages" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px"></div>
+          <div id="td-reply-card">
+            <div style="border-top:1px solid var(--border);padding-top:14px">
+              <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+                <span style="font-size:13px;font-weight:600">Svara</span>
+                <label id="td-internal-wrap" style="display:none;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin-left:4px;background:var(--tint);padding:3px 8px;border-radius:6px">
+                  <input type="checkbox" id="td-internal-cb"> Intern notering
+                </label>
+              </div>
+              <textarea id="td-reply-body" class="fi" rows="4" placeholder="Skriv ditt svar…" style="width:100%;resize:vertical;font-size:13px"></textarea>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="btn btn-p btn-sm" onclick="submitTicketReply()"><i class="ti ti-send"></i> Skicka svar</button>
+                <label class="btn btn-g btn-sm" style="cursor:pointer"><i class="ti ti-paperclip"></i> Bifoga<input type="file" id="td-attach-input" style="display:none" onchange="uploadTicketAttachment(this)"></label>
+              </div>
             </div>
           </div>
+        </div>
 
-          <!-- Ärendeinformation -->
-          <div class="tk-section">
-            <div class="tk-section-label">Ärendeinformation</div>
-            <div class="tk-row"><label class="tk-label">Typ</label>
-              <select class="fi tk-sel" id="td-type-sel">
-                <option value="incident">Incident</option>
-                <option value="service_request">Service Request</option>
-                <option value="change">Change Request</option>
-                <option value="problem">Problem</option>
-                <option value="information">Information Request</option>
-              </select>
-            </div>
-            <div class="tk-row"><label class="tk-label">Kategori</label>
-              <select class="fi tk-sel" id="td-cat-sel"><option value="">— välj —</option></select>
-            </div>
-            <div class="tk-row"><label class="tk-label">Underkategori</label>
-              <select class="fi tk-sel" id="td-subcat-sel"><option value="">— välj —</option></select>
-            </div>
-            <div class="tk-row"><label class="tk-label">Källa</label>
-              <span id="td-source-badge"></span>
-            </div>
-            <div class="tk-row"><label class="tk-label">SLA</label>
-              <span id="td-sla-info" style="font-size:12px"></span>
-            </div>
-            <div class="tk-row"><label class="tk-label">Skapad</label>
-              <span id="td-created-info" style="font-size:12px;color:var(--muted)"></span>
+        <!-- Höger sidebar -->
+        <div style="display:flex;flex-direction:column;gap:12px" id="td-sidebar">
+
+          <!-- Info -->
+          <div class="card">
+            <div class="cb" style="font-size:13px">
+              <div style="margin-bottom:8px"><span style="color:var(--muted);font-size:11px">Kund</span><br><strong id="td-customer-name">—</strong></div>
+              <div style="margin-bottom:8px"><span style="color:var(--muted);font-size:11px">Skapad</span><br><span id="td-created-info" style="color:var(--sub)">—</span></div>
+              <div><span style="color:var(--muted);font-size:11px">SLA-deadline</span><br><span id="td-sla-info">—</span></div>
             </div>
           </div>
 
-          <!-- Tilldelning -->
-          <div class="tk-section">
-            <div class="tk-section-label">Tilldelning</div>
-            <div class="tk-row"><label class="tk-label">Tilldelad</label>
-              <select class="fi tk-sel" id="td-assign-sel"><option value="">— ej tilldelad —</option></select>
+          <!-- Åtgärder (personal) -->
+          <div class="card" id="td-actions-card">
+            <div class="ch"><span class="cht">Åtgärder</span></div>
+            <div class="cb">
+              <div class="fr" style="margin:0 0 8px"><label class="fl">Status</label>
+                <select class="fi" id="td-status-sel"></select>
+              </div>
+              <div class="fr" style="margin:0 0 8px"><label class="fl">Prioritet</label>
+                <select class="fi" id="td-prio-sel">
+                  <option value="critical">Critical</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </div>
+              <div class="fr" style="margin:0 0 8px"><label class="fl">Typ</label>
+                <select class="fi" id="td-type-sel">
+                  <option value="incident">Incident</option>
+                  <option value="service_request">Service Request</option>
+                  <option value="change">Change Request</option>
+                  <option value="problem">Problem</option>
+                  <option value="information">Information Request</option>
+                </select>
+              </div>
+              <div class="fr" style="margin:0 0 8px"><label class="fl">Kategori</label>
+                <select class="fi" id="td-cat-sel"><option value="">— välj —</option></select>
+              </div>
+              <div class="fr" style="margin:0 0 8px"><label class="fl">Underkategori</label>
+                <select class="fi" id="td-subcat-sel"><option value="">— välj —</option></select>
+              </div>
+              <div class="fr" style="margin:0"><label class="fl">Tilldelad</label>
+                <select class="fi" id="td-assign-sel"><option value="">— ej tilldelad —</option></select>
+              </div>
             </div>
           </div>
 
           <!-- Mottagare -->
-          <div class="tk-section" id="td-contacts-card">
-            <div class="tk-section-label" style="display:flex;justify-content:space-between;align-items:center">
-              Mottagare
-              <button class="btn btn-g btn-sm" onclick="openAddTicketContactModal()" style="padding:3px 7px;font-size:11px"><i class="ti ti-plus"></i> Lägg till</button>
+          <div class="card" id="td-contacts-card">
+            <div class="ch"><span class="cht">Mottagare</span>
+              <button class="btn btn-g btn-sm" onclick="openAddTicketContactModal()"><i class="ti ti-plus"></i></button>
             </div>
-            <div id="td-contacts-list"></div>
+            <div class="cb" id="td-contacts-list" style="font-size:13px"></div>
           </div>
-        </div>
-
-        <!-- ─── Mitten: konversation ─── -->
-        <div class="ticket-main">
-          <!-- Konversation -->
-          <div class="card" style="margin-bottom:14px">
-            <div class="ch"><span class="cht"><i class="ti ti-messages" style="font-size:14px"></i> Konversation</span>
-              <span id="td-msg-count" style="font-size:11px;color:var(--muted)"></span>
-            </div>
-            <div style="padding:16px">
-              <div id="td-messages" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px"></div>
-              <!-- Svarsformulär -->
-              <div id="td-reply-card">
-                <div style="border-top:1px solid var(--border);padding-top:14px">
-                  <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
-                    <span style="font-size:13px;font-weight:600">Svara</span>
-                    <label id="td-internal-wrap" style="display:none;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin-left:4px;background:var(--tint);padding:3px 8px;border-radius:6px">
-                      <input type="checkbox" id="td-internal-cb"> Intern notering
-                    </label>
-                  </div>
-                  <textarea id="td-reply-body" class="fi" rows="4" placeholder="Skriv ditt svar…" style="width:100%;resize:vertical;font-size:13px"></textarea>
-                  <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
-                    <button class="btn btn-p btn-sm" onclick="submitTicketReply()"><i class="ti ti-send"></i> Skicka svar</button>
-                    <label class="btn btn-g btn-sm" style="cursor:pointer"><i class="ti ti-paperclip"></i> Bifoga fil<input type="file" id="td-attach-input" style="display:none" onchange="uploadTicketAttachment(this)"></label>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ─── Höger sidebar: tid + historik ─── -->
-        <div class="ticket-right">
 
           <!-- Tidregistrering -->
-          <div class="tk-section" id="td-time-section">
-            <div class="tk-section-label" style="display:flex;justify-content:space-between;align-items:center">
-              Tid
-              <span id="td-time-total" style="font-size:11px;color:var(--muted)"></span>
-            </div>
-            <div id="td-time-form-wrap">
-              <div class="time-form" style="margin-bottom:6px">
-                <div><label class="fl" style="font-size:11px">Datum</label><input class="fi" type="date" id="tdt-date" style="padding:5px 8px;font-size:12px"></div>
-                <div><label class="fl" style="font-size:11px">Tim</label><input class="fi" type="number" id="tdt-hours" min="0" max="23" value="0" oninput="updateTdBilledPreview()" style="padding:5px 8px;font-size:12px"></div>
-                <div><label class="fl" style="font-size:11px">Min</label><input class="fi" type="number" id="tdt-minutes" min="0" max="59" value="0" oninput="updateTdBilledPreview()" style="padding:5px 8px;font-size:12px"></div>
+          <div class="card" id="td-time-card">
+            <div class="ch"><span class="cht">Tidregistrering</span><span id="td-time-total" style="font-size:11px;color:var(--muted)"></span></div>
+            <div class="cb">
+              <div id="td-time-form-wrap">
+                <div class="time-form" style="margin-bottom:6px">
+                  <div><label class="fl">Datum</label><input class="fi" type="date" id="tdt-date"></div>
+                  <div><label class="fl">Timmar</label><input class="fi" type="number" id="tdt-hours" min="0" max="23" value="0" oninput="updateTdBilledPreview()"></div>
+                  <div><label class="fl">Minuter</label><input class="fi" type="number" id="tdt-minutes" min="0" max="59" value="0" oninput="updateTdBilledPreview()"></div>
+                </div>
+                <input class="fi" type="text" id="tdt-desc" placeholder="Beskrivning (valfritt)" style="margin-bottom:6px">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <button class="btn btn-p btn-sm" onclick="submitTicketTimeEntry()"><i class="ti ti-plus"></i> Registrera</button>
+                  <span id="tdt-billed-preview" style="font-size:11px;color:var(--muted)"></span>
+                </div>
               </div>
-              <input class="fi" type="text" id="tdt-desc" placeholder="Beskrivning (valfritt)" style="margin-bottom:6px;font-size:12px">
-              <div style="display:flex;align-items:center;gap:8px">
-                <button class="btn btn-p btn-sm" onclick="submitTicketTimeEntry()" style="font-size:12px"><i class="ti ti-plus"></i> Registrera</button>
-                <span id="tdt-billed-preview" style="font-size:11px;color:var(--muted)"></span>
-              </div>
+              <div id="td-time-entries-list" style="margin-top:10px"></div>
             </div>
-            <div id="td-time-entries-list" style="margin-top:10px"></div>
           </div>
 
           <!-- Historik -->
-          <div class="tk-section">
-            <div class="tk-section-label">Historik</div>
-            <div id="td-history" style="font-size:12px"></div>
+          <div class="card">
+            <div class="ch"><span class="cht">Historik</span></div>
+            <div class="cb" id="td-history" style="font-size:12px"></div>
           </div>
         </div>
-
       </div>
     </div>
 
@@ -4251,27 +4234,33 @@ function renderTicketDetail() {
   const tk = _currentTicket;
   const isStaff = currentUser?.role === 'admin' || currentUser?.role === 'technician';
 
-  // ── Topprad ──
+  // Topprad
   document.getElementById('td-number').textContent = tk.ticket_number;
   document.getElementById('td-title-header').textContent = tk.title;
-  document.getElementById('td-badges').innerHTML = `
-    <span class="b ${PRIO_CLS[tk.priority]||''}">${PRIO_LABEL[tk.priority]||tk.priority}</span>
-    <span class="b ${STATUS_CLS[tk.status]||''}">${STATUS_LABEL[tk.status]||tk.status}</span>
-    <span class="b b-muted">${TYPE_LABEL[tk.type]||tk.type}</span>
-    ${tk.sla_breached ? '<span class="b" style="background:#fce8e6;color:#c5221f">SLA brutet</span>' : ''}
-  `;
+  document.getElementById('td-badges').innerHTML =
+    `<span class="b ${PRIO_CLS[tk.priority]||''}">${PRIO_LABEL[tk.priority]||tk.priority}</span>` +
+    `<span class="b ${STATUS_CLS[tk.status]||''}">${STATUS_LABEL[tk.status]||tk.status}</span>` +
+    `<span class="b b-muted">${TYPE_LABEL[tk.type]||tk.type}</span>` +
+    (tk.sla_breached ? '<span class="b" style="background:#fce8e6;color:#c5221f">SLA brutet</span>' : '');
 
-  // ── Vänster sidebar ──
-  const leftCol = document.getElementById('td-left-col');
-  leftCol.style.display = isStaff ? '' : 'none';
+  // Info-kort
+  document.getElementById('td-customer-name').textContent = tk.customer_name || '—';
+  document.getElementById('td-created-info').textContent = new Date(tk.created_at).toLocaleString('sv-SE');
+  const slaEl = document.getElementById('td-sla-info');
+  slaEl.innerHTML = tk.sla_due_at
+    ? `<span class="${tk.sla_breached?'sla-breach':'sla-ok'}">${new Date(tk.sla_due_at).toLocaleString('sv-SE')}</span>`
+    : '—';
+
+  // Sidebar: visa bara för personal
+  const actCard = document.getElementById('td-actions-card');
+  const contactsCard = document.getElementById('td-contacts-card');
+  const timeCard = document.getElementById('td-time-card');
+  actCard.style.display = isStaff ? '' : 'none';
+  contactsCard.style.display = isStaff ? '' : 'none';
+  timeCard.style.display = isStaff ? '' : 'none';
 
   if (isStaff) {
-    // Kund
-    document.getElementById('td-customer-block').innerHTML = tk.customer_name
-      ? `<a href="#" onclick="nav('customers');loadCustomerDetail('${tk.customer_id}');return false" style="font-size:13px;font-weight:600;color:var(--blue);text-decoration:none">${escapeHtml(tk.customer_name)}</a>`
-      : `<span style="font-size:13px;color:var(--muted)">—</span>`;
-
-    // Status
+    // Status — nolla onchange före innerHTML-rebuild
     const statusSel = document.getElementById('td-status-sel');
     statusSel.onchange = null;
     statusSel.innerHTML = Object.entries(STATUS_LABEL).map(([v,l]) =>
@@ -4291,42 +4280,28 @@ function renderTicketDetail() {
     typeSel.value = tk.type;
     typeSel.onchange = () => updateTicketField('type', typeSel.value);
 
-    // Kategori — nolla onchange INNAN innerHTML byggs om för att undvika spurious fire
+    // Kategori: nolla BÅDA handlers innan vi rör DOM
     const catSel = document.getElementById('td-cat-sel');
+    const subcatSel = document.getElementById('td-subcat-sel');
     catSel.onchange = null;
+    subcatSel.onchange = null;
+
     const topCats = _ticketCategories.filter(c => !c.parent_id && c.is_active);
     catSel.innerHTML = '<option value="">— välj —</option>' + topCats.map(c =>
       `<option value="${c.id}"${tk.category?.id===c.id?' selected':''}>${escapeHtml(c.name)}</option>`
     ).join('');
 
-    // Underkategori — nolla onchange INNAN _updateSubcatOptions anropas
-    const subcatSel = document.getElementById('td-subcat-sel');
-    subcatSel.onchange = null;
+    // _updateSubcatOptions skriver subcatSel.innerHTML — handlers är fortfarande null
     _updateSubcatOptions(tk.category?.id, tk.subcategory?.id);
 
-    // Koppla onchange EFTER att allt är byggt
+    // Sätt handlers SIST, efter att all DOM är klar
+    subcatSel.onchange = () => updateTicketField('subcategory_id', subcatSel.value || null);
     catSel.onchange = () => {
-      updateTicketField('category_id', catSel.value || null);
       subcatSel.onchange = null;
       _updateSubcatOptions(catSel.value, null);
       subcatSel.onchange = () => updateTicketField('subcategory_id', subcatSel.value || null);
+      updateTicketField('category_id', catSel.value || null);
     };
-    subcatSel.onchange = () => updateTicketField('subcategory_id', subcatSel.value || null);
-
-    // Källa
-    const sourceMap = { email:'E-post', portal:'Portal', phone:'Telefon', manual:'Manuellt' };
-    document.getElementById('td-source-badge').textContent = sourceMap[tk.source] || tk.source || '—';
-
-    // SLA
-    const slaEl = document.getElementById('td-sla-info');
-    if (tk.sla_due_at) {
-      slaEl.innerHTML = `<span class="${tk.sla_breached?'sla-breach':'sla-ok'}">${new Date(tk.sla_due_at).toLocaleString('sv-SE')}</span>`;
-    } else {
-      slaEl.textContent = '—';
-    }
-
-    // Skapad
-    document.getElementById('td-created-info').textContent = new Date(tk.created_at).toLocaleString('sv-SE');
 
     // Tilldelad
     const assignSel = document.getElementById('td-assign-sel');
@@ -4336,21 +4311,15 @@ function renderTicketDetail() {
     ).join('');
     assignSel.onchange = () => updateTicketField('assigned_to_user_id', assignSel.value || null);
 
-    // Mottagare
     renderTicketContacts();
-
-    // Tidpost-formulär
-    const timeFormWrap = document.getElementById('td-time-form-wrap');
-    if (timeFormWrap) timeFormWrap.style.display = '';
+    renderTicketTimeEntries();
   }
 
-  // ── Konversation ──
+  // Konversation
   const allMsgs = tk.messages || [];
   const msgs = tk.source === 'email' ? allMsgs.slice(1) : allMsgs;
-  const msgCount = msgs.length;
-  document.getElementById('td-msg-count').textContent = msgCount ? `${msgCount} svar` : '';
-
   const msgsEl = document.getElementById('td-messages');
+
   let descHtml = '';
   if (tk.description) {
     descHtml = `<div class="ticket-msg from-customer" style="border-left-color:#6b7280;background:#f8f9fa">
@@ -4364,8 +4333,7 @@ function renderTicketDetail() {
 
   let msgsHtml = '';
   if (msgs.length) {
-    const reversed = [...msgs].reverse();
-    msgsHtml = reversed.map(m => {
+    msgsHtml = [...msgs].reverse().map(m => {
       const isStaffMsg = m.author_role === 'admin' || m.author_role === 'technician';
       const cls = m.is_internal ? 'internal' : isStaffMsg ? 'from-staff' : 'from-customer';
       const tag = m.is_internal ? ' <span style="font-size:10px;background:#f59e0b;color:#fff;border-radius:3px;padding:1px 5px">INTERN</span>' : '';
@@ -4381,32 +4349,30 @@ function renderTicketDetail() {
       </div>`;
     }).join('');
   } else if (!tk.description) {
-    msgsHtml = `<div style="color:var(--muted);font-size:13px;padding:8px">Inga meddelanden ännu.</div>`;
+    msgsHtml = `<div style="color:var(--muted);font-size:13px;padding:8px 0">Inga meddelanden ännu.</div>`;
   }
 
-  const separator = (tk.description && msgs.length)
+  const sep = (tk.description && msgs.length)
     ? `<div style="display:flex;align-items:center;gap:8px;margin:10px 0;color:var(--muted);font-size:11px"><div style="flex:1;height:1px;background:var(--border)"></div>Svar<div style="flex:1;height:1px;background:var(--border)"></div></div>`
     : '';
-
-  msgsEl.innerHTML = descHtml + separator + msgsHtml;
+  msgsEl.innerHTML = descHtml + sep + msgsHtml;
 
   // Svarsformulär
   const closed = ['closed','cancelled','resolved'].includes(tk.status);
-  document.getElementById('td-reply-card').style.display = closed && !isStaff ? 'none' : '';
+  document.getElementById('td-reply-card').style.display = (closed && !isStaff) ? 'none' : '';
   if (isStaff) document.getElementById('td-internal-wrap').style.display = 'flex';
 
-  // ── Historik (höger sidebar) ──
+  // Historik
   const hist = tk.history || [];
-  document.getElementById('td-history').innerHTML = hist.length ? hist.map(h => {
-    const fieldMap = { status:'Status', priority:'Prioritet', type:'Typ', assigned_to:'Tilldelad', category_id:'Kategori', subcategory_id:'Underkategori' };
-    return `<div style="padding:5px 0;border-bottom:1px solid var(--border)">
-      <span style="color:var(--muted);font-size:10px">${new Date(h.changed_at).toLocaleString('sv-SE')}</span><br>
-      <span style="font-size:11px">${fieldMap[h.field]||h.field}: <em style="color:var(--muted)">${h.old_value||'—'}</em> → <strong>${h.new_value||'—'}</strong></span>
-    </div>`;
-  }).join('') : '<span style="color:var(--muted);font-size:12px">Ingen historik ännu.</span>';
-
-  // ── Tidsposter ──
-  renderTicketTimeEntries();
+  document.getElementById('td-history').innerHTML = hist.length
+    ? hist.map(h => {
+        const fm = {status:'Status',priority:'Prioritet',type:'Typ',assigned_to:'Tilldelad',category_id:'Kategori',subcategory_id:'Underkategori'};
+        return `<div style="padding:5px 0;border-bottom:1px solid var(--border)">
+          <span style="color:var(--muted);font-size:11px">${new Date(h.changed_at).toLocaleString('sv-SE')}</span><br>
+          <span>${fm[h.field]||h.field}: <em style="color:var(--muted)">${h.old_value||'—'}</em> → <strong>${h.new_value||'—'}</strong></span>
+        </div>`;
+      }).join('')
+    : '<span style="color:var(--muted)">Ingen historik ännu.</span>';
 }
 
 function renderTicketContacts() {
@@ -4792,6 +4758,28 @@ function closeSidebar() {
   document.querySelector('.sidebar').classList.remove('open');
   document.getElementById('sb-overlay').classList.remove('visible');
 }
+function toggleSidebarCollapse() {
+  const sb = document.getElementById('main-sidebar');
+  const icon = document.getElementById('sb-toggle-icon');
+  const collapsed = sb.classList.toggle('collapsed');
+  if (icon) {
+    icon.className = collapsed
+      ? 'ti ti-layout-sidebar-left-expand'
+      : 'ti ti-layout-sidebar-left-collapse';
+  }
+  try { localStorage.setItem('sb_collapsed', collapsed ? '1' : '0'); } catch(e) {}
+}
+// Återställ sidebar-tillstånd från localStorage vid sidladdning
+(function() {
+  try {
+    if (localStorage.getItem('sb_collapsed') === '1') {
+      const sb = document.getElementById('main-sidebar');
+      const icon = document.getElementById('sb-toggle-icon');
+      if (sb) sb.classList.add('collapsed');
+      if (icon) icon.className = 'ti ti-layout-sidebar-left-expand';
+    }
+  } catch(e) {}
+})();
 // Close sidebar on nav click on mobile
 document.querySelectorAll('.nav').forEach(el => {
   el.addEventListener('click', () => {
