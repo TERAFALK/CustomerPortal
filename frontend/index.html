@@ -4217,10 +4217,9 @@ function _relTime(iso) {
 
 async function openTicketDetail(ticketId) {
   nav('ticket-detail');
-  switchTdTab('messages');
   // Sätt dagens datum i tidregistreringsformuläret
   const dateEl = document.getElementById('tdt-date');
-  if (dateEl && !dateEl.value) dateEl.value = new Date().toISOString().split('T')[0];
+  if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
   try {
     _currentTicket = await api('/api/tickets/' + ticketId);
     await _ensureTicketMeta();
@@ -4252,10 +4251,9 @@ function renderTicketDetail() {
   const tk = _currentTicket;
   const isStaff = currentUser?.role === 'admin' || currentUser?.role === 'technician';
 
+  // ── Topprad ──
   document.getElementById('td-number').textContent = tk.ticket_number;
   document.getElementById('td-title-header').textContent = tk.title;
-
-  // Badges
   document.getElementById('td-badges').innerHTML = `
     <span class="b ${PRIO_CLS[tk.priority]||''}">${PRIO_LABEL[tk.priority]||tk.priority}</span>
     <span class="b ${STATUS_CLS[tk.status]||''}">${STATUS_LABEL[tk.status]||tk.status}</span>
@@ -4263,11 +4261,99 @@ function renderTicketDetail() {
     ${tk.sla_breached ? '<span class="b" style="background:#fce8e6;color:#c5221f">SLA brutet</span>' : ''}
   `;
 
-  // Beskrivning överst (visas alltid om den finns)
+  // ── Vänster sidebar ──
+  const leftCol = document.getElementById('td-left-col');
+  leftCol.style.display = isStaff ? '' : 'none';
+
+  if (isStaff) {
+    // Kund
+    document.getElementById('td-customer-block').innerHTML = tk.customer_name
+      ? `<a href="#" onclick="nav('customers');loadCustomerDetail('${tk.customer_id}');return false" style="font-size:13px;font-weight:600;color:var(--blue);text-decoration:none">${escapeHtml(tk.customer_name)}</a>`
+      : `<span style="font-size:13px;color:var(--muted)">—</span>`;
+
+    // Status
+    const statusSel = document.getElementById('td-status-sel');
+    statusSel.onchange = null;
+    statusSel.innerHTML = Object.entries(STATUS_LABEL).map(([v,l]) =>
+      `<option value="${v}"${tk.status===v?' selected':''}>${l}</option>`
+    ).join('');
+    statusSel.onchange = () => updateTicketField('status', statusSel.value);
+
+    // Prioritet
+    const prioSel = document.getElementById('td-prio-sel');
+    prioSel.onchange = null;
+    prioSel.value = tk.priority;
+    prioSel.onchange = () => updateTicketField('priority', prioSel.value);
+
+    // Typ
+    const typeSel = document.getElementById('td-type-sel');
+    typeSel.onchange = null;
+    typeSel.value = tk.type;
+    typeSel.onchange = () => updateTicketField('type', typeSel.value);
+
+    // Kategori — nolla onchange INNAN innerHTML byggs om för att undvika spurious fire
+    const catSel = document.getElementById('td-cat-sel');
+    catSel.onchange = null;
+    const topCats = _ticketCategories.filter(c => !c.parent_id && c.is_active);
+    catSel.innerHTML = '<option value="">— välj —</option>' + topCats.map(c =>
+      `<option value="${c.id}"${tk.category?.id===c.id?' selected':''}>${escapeHtml(c.name)}</option>`
+    ).join('');
+
+    // Underkategori — nolla onchange INNAN _updateSubcatOptions anropas
+    const subcatSel = document.getElementById('td-subcat-sel');
+    subcatSel.onchange = null;
+    _updateSubcatOptions(tk.category?.id, tk.subcategory?.id);
+
+    // Koppla onchange EFTER att allt är byggt
+    catSel.onchange = () => {
+      updateTicketField('category_id', catSel.value || null);
+      subcatSel.onchange = null;
+      _updateSubcatOptions(catSel.value, null);
+      subcatSel.onchange = () => updateTicketField('subcategory_id', subcatSel.value || null);
+    };
+    subcatSel.onchange = () => updateTicketField('subcategory_id', subcatSel.value || null);
+
+    // Källa
+    const sourceMap = { email:'E-post', portal:'Portal', phone:'Telefon', manual:'Manuellt' };
+    document.getElementById('td-source-badge').textContent = sourceMap[tk.source] || tk.source || '—';
+
+    // SLA
+    const slaEl = document.getElementById('td-sla-info');
+    if (tk.sla_due_at) {
+      slaEl.innerHTML = `<span class="${tk.sla_breached?'sla-breach':'sla-ok'}">${new Date(tk.sla_due_at).toLocaleString('sv-SE')}</span>`;
+    } else {
+      slaEl.textContent = '—';
+    }
+
+    // Skapad
+    document.getElementById('td-created-info').textContent = new Date(tk.created_at).toLocaleString('sv-SE');
+
+    // Tilldelad
+    const assignSel = document.getElementById('td-assign-sel');
+    assignSel.onchange = null;
+    assignSel.innerHTML = '<option value="">— ej tilldelad —</option>' + _ticketStaff.map(u =>
+      `<option value="${u.id}"${tk.assigned_to?.id===u.id?' selected':''}>${escapeHtml(u.full_name||u.email)}</option>`
+    ).join('');
+    assignSel.onchange = () => updateTicketField('assigned_to_user_id', assignSel.value || null);
+
+    // Mottagare
+    renderTicketContacts();
+
+    // Tidpost-formulär
+    const timeFormWrap = document.getElementById('td-time-form-wrap');
+    if (timeFormWrap) timeFormWrap.style.display = '';
+  }
+
+  // ── Konversation ──
+  const allMsgs = tk.messages || [];
+  const msgs = tk.source === 'email' ? allMsgs.slice(1) : allMsgs;
+  const msgCount = msgs.length;
+  document.getElementById('td-msg-count').textContent = msgCount ? `${msgCount} svar` : '';
+
   const msgsEl = document.getElementById('td-messages');
   let descHtml = '';
   if (tk.description) {
-    descHtml = `<div class="ticket-msg from-customer" style="border-left-color:#6b7280;background:#f8f9fa;margin-bottom:4px">
+    descHtml = `<div class="ticket-msg from-customer" style="border-left-color:#6b7280;background:#f8f9fa">
       <div class="ticket-msg-header">
         <span class="ticket-msg-author" style="color:var(--sub)"><i class="ti ti-align-left" style="font-size:12px"></i> Beskrivning</span>
         <span>${new Date(tk.created_at).toLocaleString('sv-SE')}</span>
@@ -4276,16 +4362,8 @@ function renderTicketDetail() {
     </div>`;
   }
 
-  // Meddelanden — senaste svaret överst (hoppar över mail-meddelanden som är dubbletter av description)
-  const allMsgs = tk.messages || [];
-  // Vid e-postskapade ärenden är första meddelandet samma som description — visa det inte igen
-  const msgs = tk.source === 'email'
-    ? allMsgs.slice(1)   // hoppa över första meddelandet (= originalmailen = description)
-    : allMsgs;
-
   let msgsHtml = '';
   if (msgs.length) {
-    // Senaste överst
     const reversed = [...msgs].reverse();
     msgsHtml = reversed.map(m => {
       const isStaffMsg = m.author_role === 'admin' || m.author_role === 'technician';
@@ -4299,17 +4377,15 @@ function renderTicketDetail() {
           <span class="ticket-msg-author">${escapeHtml(m.author_name||'Okänd')}${tag}</span>
           <span>${_relTime(m.created_at)}</span>
         </div>
-        <div>${m.body}</div>
-        ${atts}
+        <div>${m.body}</div>${atts}
       </div>`;
     }).join('');
   } else if (!tk.description) {
     msgsHtml = `<div style="color:var(--muted);font-size:13px;padding:8px">Inga meddelanden ännu.</div>`;
   }
 
-  // Separator om det finns både description och svar
   const separator = (tk.description && msgs.length)
-    ? `<div style="display:flex;align-items:center;gap:8px;margin:8px 0;color:var(--muted);font-size:11px"><div style="flex:1;height:1px;background:var(--border)"></div>Svar<div style="flex:1;height:1px;background:var(--border)"></div></div>`
+    ? `<div style="display:flex;align-items:center;gap:8px;margin:10px 0;color:var(--muted);font-size:11px"><div style="flex:1;height:1px;background:var(--border)"></div>Svar<div style="flex:1;height:1px;background:var(--border)"></div></div>`
     : '';
 
   msgsEl.innerHTML = descHtml + separator + msgsHtml;
@@ -4319,73 +4395,17 @@ function renderTicketDetail() {
   document.getElementById('td-reply-card').style.display = closed && !isStaff ? 'none' : '';
   if (isStaff) document.getElementById('td-internal-wrap').style.display = 'flex';
 
-  // Metadata
-  const slaTime = tk.sla_due_at ? new Date(tk.sla_due_at).toLocaleString('sv-SE') : '—';
-  document.getElementById('td-meta').innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:8px;font-size:13px">
-      <div><span style="color:var(--muted)">Kund</span><br><strong>${escapeHtml(tk.customer_name||'—')}</strong></div>
-      <div><span style="color:var(--muted)">Skapad av</span><br>${escapeHtml(tk.created_by?.name||'Okänd')}</div>
-      <div><span style="color:var(--muted)">Tilldelad</span><br>${escapeHtml(tk.assigned_to?.name||'—')}</div>
-      <div><span style="color:var(--muted)">Kategori</span><br>${escapeHtml(tk.category?.name||'—')}${tk.subcategory ? ' › ' + escapeHtml(tk.subcategory.name) : ''}</div>
-      <div><span style="color:var(--muted)">SLA-deadline</span><br><span class="${tk.sla_breached?'sla-breach':''}">${slaTime}</span></div>
-      <div><span style="color:var(--muted)">Skapad</span><br>${new Date(tk.created_at).toLocaleString('sv-SE')}</div>
-    </div>
-  `;
-
-  // Åtgärdspanel (personal)
-  const actCard = document.getElementById('td-actions-card');
-  actCard.style.display = isStaff ? '' : 'none';
-  const contactsCard = document.getElementById('td-contacts-card');
-  contactsCard.style.display = isStaff ? '' : 'none';
-
-  if (isStaff) {
-    // Status-dropdown
-    const statusSel = document.getElementById('td-status-sel');
-    statusSel.innerHTML = Object.entries(STATUS_LABEL).map(([v,l]) =>
-      `<option value="${v}"${tk.status===v?' selected':''}>${l}</option>`
-    ).join('');
-
-    // Prioritet, typ
-    document.getElementById('td-prio-sel').value = tk.priority;
-    document.getElementById('td-type-sel').value = tk.type;
-
-    // Kategorier
-    const topCats = _ticketCategories.filter(c => !c.parent_id && c.is_active);
-    const catSel = document.getElementById('td-cat-sel');
-    catSel.innerHTML = '<option value="">— välj —</option>' + topCats.map(c =>
-      `<option value="${c.id}"${tk.category?.id===c.id?' selected':''}>${escapeHtml(c.name)}</option>`
-    ).join('');
-    _updateSubcatOptions(tk.category?.id, tk.subcategory?.id);
-    catSel.onchange = () => { updateTicketField('category_id', catSel.value||null); _updateSubcatOptions(catSel.value, null); };
-
-    // Tilldelade
-    const assignSel = document.getElementById('td-assign-sel');
-    assignSel.innerHTML = '<option value="">— ej tilldelad —</option>' + _ticketStaff.map(u =>
-      `<option value="${u.id}"${tk.assigned_to?.id===u.id?' selected':''}>${escapeHtml(u.full_name||u.email)}</option>`
-    ).join('');
-
-    // Kontaktpersoner
-    renderTicketContacts();
-
-    // Tidpost-formulär: visa bara för personal
-    const timeFormWrap = document.getElementById('td-time-form-wrap');
-    if (timeFormWrap) timeFormWrap.style.display = '';
-  } else {
-    const timeFormWrap = document.getElementById('td-time-form-wrap');
-    if (timeFormWrap) timeFormWrap.style.display = 'none';
-  }
-
-  // Historik
+  // ── Historik (höger sidebar) ──
   const hist = tk.history || [];
   document.getElementById('td-history').innerHTML = hist.length ? hist.map(h => {
-    const fieldMap = { status:'Status', priority:'Prioritet', type:'Typ', assigned_to:'Tilldelad' };
-    return `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
-      <span style="color:var(--muted);font-size:11px">${new Date(h.changed_at).toLocaleString('sv-SE')}</span><br>
-      <span style="font-size:12px">${fieldMap[h.field]||h.field}: <em style="color:var(--muted)">${h.old_value||'—'}</em> → <strong>${h.new_value||'—'}</strong></span>
+    const fieldMap = { status:'Status', priority:'Prioritet', type:'Typ', assigned_to:'Tilldelad', category_id:'Kategori', subcategory_id:'Underkategori' };
+    return `<div style="padding:5px 0;border-bottom:1px solid var(--border)">
+      <span style="color:var(--muted);font-size:10px">${new Date(h.changed_at).toLocaleString('sv-SE')}</span><br>
+      <span style="font-size:11px">${fieldMap[h.field]||h.field}: <em style="color:var(--muted)">${h.old_value||'—'}</em> → <strong>${h.new_value||'—'}</strong></span>
     </div>`;
-  }).join('') : '<span style="color:var(--muted);font-size:13px">Ingen historik</span>';
+  }).join('') : '<span style="color:var(--muted);font-size:12px">Ingen historik ännu.</span>';
 
-  // Tidsposter
+  // ── Tidsposter ──
   renderTicketTimeEntries();
 }
 
@@ -4464,32 +4484,30 @@ function updateTdBilledPreview() {
 function renderTicketTimeEntries() {
   const tk = _currentTicket;
   const entries = tk.time_entries || [];
-  const tbody = document.getElementById('td-time-tbody');
-  if (!tbody) return;
-  if (!entries.length) {
-    tbody.innerHTML = `<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:20px">Inga tidsposter.</td></tr>`;
-    document.getElementById('td-time-summary').style.display = 'none';
-    return;
-  }
+  const listEl = document.getElementById('td-time-entries-list');
+  if (!listEl) return;
   const isStaff = currentUser?.role === 'admin' || currentUser?.role === 'technician';
   let totalActual = 0, totalBilled = 0;
-  tbody.innerHTML = entries.map(e => {
+  if (!entries.length) {
+    listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:4px 0">Inga tidsposter.</div>';
+    document.getElementById('td-time-total').textContent = '';
+    return;
+  }
+  listEl.innerHTML = entries.map(e => {
     const actual = e.hours*60 + e.minutes;
     totalActual += actual;
     totalBilled += e.billed_minutes;
-    return `<tr>
-      <td style="font-size:12px">${e.worked_at}</td>
-      <td style="font-size:12px">${escapeHtml(e.description||'—')}</td>
-      <td style="font-size:12px;color:var(--muted)">${escapeHtml(e.user_name||'—')}</td>
-      <td style="text-align:right;font-size:12px">${e.hours}h ${e.minutes}m</td>
-      <td style="text-align:right;font-size:12px;font-weight:600">${Math.floor(e.billed_minutes/60)}h ${e.billed_minutes%60}m</td>
-      <td>${isStaff ? `<button class="btn btn-danger btn-sm btn-ico" onclick="deleteTicketTimeEntry('${e.id}')"><i class="ti ti-trash"></i></button>` : ''}</td>
-    </tr>`;
+    return `<div class="tk-time-entry">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:11px">${e.worked_at} · ${e.hours}h ${e.minutes}m</div>
+        <div style="color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(e.description||'—')}</div>
+        <div style="color:var(--muted);font-size:10px">${escapeHtml(e.user_name||'')}</div>
+      </div>
+      ${isStaff ? `<button class="btn btn-danger btn-sm btn-ico" onclick="deleteTicketTimeEntry('${e.id}')" style="padding:2px 5px;font-size:11px"><i class="ti ti-trash"></i></button>` : ''}
+    </div>`;
   }).join('');
-  const sumEl = document.getElementById('td-time-summary');
-  sumEl.style.display = '';
-  document.getElementById('tds-actual').textContent = `${Math.floor(totalActual/60)}h ${totalActual%60}m`;
-  document.getElementById('tds-billed').textContent = `${Math.floor(totalBilled/60)}h ${totalBilled%60}m`;
+  const totalEl = document.getElementById('td-time-total');
+  if (totalEl) totalEl.textContent = `${Math.floor(totalBilled/60)}h ${totalBilled%60}m debiterat`;
 }
 
 async function submitTicketTimeEntry() {
