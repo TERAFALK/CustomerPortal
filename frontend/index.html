@@ -1431,7 +1431,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
       <!-- Flikar (projekt har fler) -->
       <div class="cd-tabs" id="od-tabs">
         <div class="cd-tab active" data-tab="od-info" onclick="switchOdTab('od-info')"><i class="ti ti-info-circle"></i> Info</div>
-        <div class="cd-tab" data-tab="od-people" onclick="switchOdTab('od-people')"><i class="ti ti-users"></i> Tilldelning</div>
+        <div class="cd-tab" data-tab="od-people" id="od-tab-people" onclick="switchOdTab('od-people')"><i class="ti ti-users"></i> Tilldelning</div>
         <div class="cd-tab" data-tab="od-documents" onclick="switchOdTab('od-documents')"><i class="ti ti-file"></i> Dokument</div>
         <div class="cd-tab od-project-only" data-tab="od-gantt" onclick="switchOdTab('od-gantt')" style="display:none"><i class="ti ti-calendar-stats"></i> Planering</div>
         <div class="cd-tab od-project-only" data-tab="od-time" onclick="switchOdTab('od-time')" style="display:none"><i class="ti ti-clock"></i> Arbetad tid</div>
@@ -1568,9 +1568,13 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
       <div style="font-size:16px;font-weight:700">Nytt ärende</div>
       <button class="btn btn-g btn-sm btn-ico" onclick="closeModal('modal-ticket')"><i class="ti ti-x"></i></button>
     </div>
-    <div class="fr">
+    <div class="fr" id="mt-customer-row">
       <label class="fl">Kund *</label>
       <select class="fi" id="mt-customer"></select>
+    </div>
+    <div id="mt-customer-display" style="display:none;margin-bottom:12px">
+      <span class="fl" style="font-size:13px;color:var(--muted)">Kund</span>
+      <span id="mt-customer-name" style="font-size:13px;font-weight:600"></span>
     </div>
     <div class="fr">
       <label class="fl">Titel *</label>
@@ -3582,6 +3586,10 @@ async function loadOrderDetail(orderId) {
 
     // Admin-kontroller
     const isAdmin = currentUser && currentUser.role === 'admin';
+    const isCustomer = currentUser && currentUser.role === 'customer';
+    // Dölj tilldelningsfliken för kundanvändare
+    const peopleTab = document.getElementById('od-tab-people');
+    if (peopleTab) peopleTab.style.display = isCustomer ? 'none' : '';
     document.getElementById('od-phase-btns').style.display = isAdmin ? '' : 'none';
     document.getElementById('od-admin-info-btns').style.display = isAdmin ? '' : 'none';
     document.getElementById('od-upload-btn').style.display = isAdmin ? '' : 'none';
@@ -4556,7 +4564,18 @@ function renderTicketsTable() {
 
   let list = _tickets.filter(tk => {
     if (_ticketFilter.status !== 'all' && tk.status !== _ticketFilter.status) return false;
-    if (_ticketFilter.mine && tk.assigned_to?.id !== myId) return false;
+    if (_ticketFilter.mine) {
+      const isCustomer = currentUser?.role === 'customer';
+      if (isCustomer) {
+        // Kund: visa ärenden där användaren är listad som kontakt (matchas på e-post)
+        const myEmail = currentUser?.email;
+        const isContact = (tk.contacts || []).some(c => c.email === myEmail);
+        if (!isContact) return false;
+      } else {
+        // Admin/tekniker: visa ärenden tilldelade till mig
+        if (tk.assigned_to?.id !== myId) return false;
+      }
+    }
     if (search && !tk.title.toLowerCase().includes(search) && !tk.ticket_number.toLowerCase().includes(search) && !(tk.customer_name||'').toLowerCase().includes(search)) return false;
     return true;
   });
@@ -5021,12 +5040,21 @@ async function openNewTicketModal(prefillCustomerId) {
   if (!_ticketCategories.length) {
     _ticketCategories = await api('/api/ticket-settings/categories');
   }
-  // Fyll kundlista
+  // Kundväljare — kunder ser bara sin egen kund, inte väljaren
   const sel = document.getElementById('mt-customer');
-  if (currentUser?.role !== 'admin' && currentUser?.role !== 'technician') {
-    sel.innerHTML = `<option value="${currentUser.customer_id}">${currentUser.customer_id}</option>`;
-    sel.disabled = true;
+  const row = document.getElementById('mt-customer-row');
+  const display = document.getElementById('mt-customer-display');
+  const isCustomer = currentUser?.role === 'customer';
+  if (isCustomer) {
+    sel.innerHTML = `<option value="${currentUser.customer_id}" selected></option>`;
+    row.style.display = 'none';
+    display.style.display = '';
+    api('/api/customers/' + currentUser.customer_id).then(c => {
+      document.getElementById('mt-customer-name').textContent = c.name || '';
+    }).catch(() => {});
   } else {
+    row.style.display = '';
+    display.style.display = 'none';
     const customers = await api('/api/customers');
     sel.disabled = false;
     sel.innerHTML = customers.map(c => `<option value="${c.id}"${c.id===prefillCustomerId?' selected':''}>${escapeHtml(c.name)}</option>`).join('');
