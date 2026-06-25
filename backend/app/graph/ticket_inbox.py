@@ -90,7 +90,7 @@ async def _process_unread_messages(token: str, mailbox: str) -> None:
 
 
 async def _handle_message(db, raw_msg: dict, headers: dict) -> None:
-    from app.db.models import Customer, Ticket, TicketMessage, TicketHistory
+    from app.db.models import Customer, ProcessedEmail, Ticket, TicketMessage, TicketHistory
     from sqlalchemy import select
 
     graph_id   = raw_msg["id"]
@@ -100,12 +100,14 @@ async def _handle_message(db, raw_msg: dict, headers: dict) -> None:
     sender_name  = sender_obj.get("name", sender_email)
     body_html    = raw_msg.get("body", {}).get("content", "")
 
-    # Undvik att bearbeta samma mejl två gånger
-    existing_msg = await db.scalar(
-        select(TicketMessage).where(TicketMessage.email_message_id == graph_id)
-    )
-    if existing_msg:
+    # Undvik att bearbeta samma mejl två gånger.
+    # Kontrollera ProcessedEmail-tabellen — den överlever ärendeborttag till skillnad från TicketMessage.
+    already_processed = await db.get(ProcessedEmail, graph_id)
+    if already_processed:
         return
+
+    # Markera som bearbetad direkt — sker oavsett vad som händer nedanför
+    db.add(ProcessedEmail(email_message_id=graph_id))
 
     # Kolla om detta är ett svar på befintligt ärende
     ref_match = TICKET_REF_RE.search(subject)
@@ -116,6 +118,10 @@ async def _handle_message(db, raw_msg: dict, headers: dict) -> None:
         )
         if ticket:
             await _add_email_reply(db, ticket, sender_email, sender_name, body_html, graph_id)
+            return
+        else:
+            # Ärendet finns inte längre (raderat) — skippa utan att skapa nytt
+            logger.info("Ignorerar mail med referens till raderat ärende %s", ticket_number)
             return
 
     # Nytt ärende — matcha kund i prioritetsordning:

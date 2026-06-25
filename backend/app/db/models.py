@@ -106,6 +106,16 @@ class SystemSetting(Base):
     value: Mapped[str] = mapped_column(String, nullable=False)
 
 
+class ProcessedEmail(Base):
+    """Spårar Graph-meddelandeid som redan bearbetats av inbox-pollern.
+    Raderas aldrig — överlevde ärendeborttag — så att mailen inte återskapar ärenden."""
+
+    __tablename__ = "processed_emails"
+
+    email_message_id: Mapped[str] = mapped_column(String, primary_key=True)
+    processed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class Report(Base):
     """En genererad och skickad månadsrapport per kund."""
 
