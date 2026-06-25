@@ -1215,10 +1215,10 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
           <button class="btn btn-g btn-sm tfilter active" data-filter="all" onclick="setTicketFilter('status','all',this)">Alla</button>
           <button class="btn btn-g btn-sm tfilter" data-filter="new" onclick="setTicketFilter('status','new',this)">Nya</button>
           <button class="btn btn-g btn-sm tfilter" data-filter="open" onclick="setTicketFilter('status','open',this)">Öppna</button>
-          <button class="btn btn-g btn-sm tfilter" data-filter="in_progress" onclick="setTicketFilter('status','in_progress',this)">Pågår</button>
-          <button class="btn btn-g btn-sm tfilter" data-filter="pending_customer" onclick="setTicketFilter('status','pending_customer',this)">Väntar på kund</button>
-          <button class="btn btn-g btn-sm tfilter" data-filter="resolved" onclick="setTicketFilter('status','resolved',this)">Lösta</button>
-          <button class="btn btn-g btn-sm tfilter" data-filter="closed" onclick="setTicketFilter('status','closed',this)">Stängda</button>
+          <button class="btn btn-g btn-sm tfilter" data-filter="in_progress" onclick="setTicketFilter('status','in_progress',this)">In Progress</button>
+          <button class="btn btn-g btn-sm tfilter" data-filter="pending_customer" onclick="setTicketFilter('status','pending_customer',this)">Pending Customer</button>
+          <button class="btn btn-g btn-sm tfilter" data-filter="resolved" onclick="setTicketFilter('status','resolved',this)">Resolved</button>
+          <button class="btn btn-g btn-sm tfilter" data-filter="closed" onclick="setTicketFilter('status','closed',this)">Closed</button>
         </div>
         <div style="flex:1"></div>
         <button class="btn btn-g btn-sm" id="ticket-mine-btn" onclick="toggleTicketMine()"><i class="ti ti-user"></i> Mina ärenden</button>
@@ -1254,6 +1254,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
           </div>
           <div id="td-title-header" style="font-size:17px;font-weight:700;color:var(--text);line-height:1.3"></div>
         </div>
+        <div id="td-admin-actions"></div>
       </div>
 
       <!-- 2-kolumn: konversation + sidebar -->
@@ -1527,10 +1528,10 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
       <div class="fr" style="margin:0">
         <label class="fl">Prioritet</label>
         <select class="fi" id="mt-priority">
-          <option value="low">Låg</option>
+          <option value="low">Low</option>
           <option value="medium" selected>Medium</option>
-          <option value="high">Hög</option>
-          <option value="critical">Kritisk</option>
+          <option value="high">High</option>
+          <option value="critical">Critical</option>
         </select>
       </div>
     </div>
@@ -4104,9 +4105,9 @@ document.getElementById('modal-task').addEventListener('click', function(e) { if
 // ÄRENDEHANTERING
 // ═══════════════════════════════════════════════════════
 
-const PRIO_LABEL   = { critical:'Kritisk', high:'Hög', medium:'Medium', low:'Låg' };
+const PRIO_LABEL   = { critical:'Critical', high:'High', medium:'Medium', low:'Low' };
 const PRIO_CLS     = { critical:'tp-critical', high:'tp-high', medium:'tp-medium', low:'tp-low' };
-const STATUS_LABEL = { new:'Ny', open:'Öppen', in_progress:'Pågår', pending_customer:'Väntar på kund', resolved:'Löst', closed:'Stängd', cancelled:'Makulerad' };
+const STATUS_LABEL = { new:'New', open:'Open', in_progress:'In Progress', pending_customer:'Pending Customer', resolved:'Resolved', closed:'Closed', cancelled:'Cancelled' };
 const STATUS_CLS   = { new:'ts-new', open:'ts-open', in_progress:'ts-in_progress', pending_customer:'ts-pending_customer', resolved:'ts-resolved', closed:'ts-closed', cancelled:'ts-cancelled' };
 const TYPE_LABEL   = { incident:'Incident', service_request:'Service Request', change:'Change Request', problem:'Problem', information:'Information Request' };
 
@@ -4242,6 +4243,14 @@ function renderTicketDetail() {
     `<span class="b ${STATUS_CLS[tk.status]||''}">${STATUS_LABEL[tk.status]||tk.status}</span>` +
     `<span class="b b-muted">${TYPE_LABEL[tk.type]||tk.type}</span>` +
     (tk.sla_breached ? '<span class="b" style="background:#fce8e6;color:#c5221f">SLA brutet</span>' : '');
+
+  // Admin-åtgärder (radera)
+  const adminActions = document.getElementById('td-admin-actions');
+  if (adminActions) {
+    adminActions.innerHTML = currentUser?.role === 'admin'
+      ? `<button class="btn btn-danger btn-sm" onclick="deleteTicket('${tk.id}')"><i class="ti ti-trash"></i> Radera ärende</button>`
+      : '';
+  }
 
   // Info-kort
   document.getElementById('td-customer-name').textContent = tk.customer_name || '—';
@@ -4494,6 +4503,16 @@ async function submitTicketTimeEntry() {
     _currentTicket = await api('/api/tickets/' + _currentTicket.id);
     renderTicketTimeEntries();
     t('Tidspost registrerad');
+  } catch(e) { t(e.message, 'err'); }
+}
+
+async function deleteTicket(ticketId) {
+  if (!confirm('Är du säker på att du vill radera ärendet? Detta går inte att ångra.')) return;
+  try {
+    await api('/api/tickets/' + ticketId, { method: 'DELETE' });
+    _tickets = _tickets.filter(t => t.id !== ticketId);
+    nav('tickets');
+    t('Ärende raderat');
   } catch(e) { t(e.message, 'err'); }
 }
 

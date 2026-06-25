@@ -406,6 +406,17 @@ async def update_ticket(
     return _ticket_dict(ticket, include_internals=_is_staff(user))
 
 
+@router.delete("/{ticket_id}", status_code=204)
+async def delete_ticket(
+    ticket_id: str,
+    user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    ticket = await _get_ticket_or_404(ticket_id, db)
+    await db.delete(ticket)
+    await db.commit()
+
+
 # ── Meddelanden ────────────────────────────────────────────────────────────────
 
 class MessageBody(BaseModel):
