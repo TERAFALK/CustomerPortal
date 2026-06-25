@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.auth import current_user, require_admin
 from app.db.database import get_db
-from app.db.models import Order, OrderDocument, OrderPhaseTemplate, ProjectTask, TimeEntry, User
+from app.db.models import CustomerContact, Order, OrderContact, OrderDocument, OrderPhaseTemplate, ProjectTask, TimeEntry, User
 
 router = APIRouter()
 
@@ -39,7 +39,7 @@ def _phase_dict(phase: OrderPhaseTemplate) -> dict:
 
 
 def _order_dict(order: Order, include_phase: bool = True) -> dict:
-    d = {
+    return {
         "id": order.id,
         "customer_id": order.customer_id,
         "customer_name": order.customer.name if order.customer else None,
@@ -47,12 +47,20 @@ def _order_dict(order: Order, include_phase: bool = True) -> dict:
         "title": order.title,
         "description": order.description,
         "status": order.status,
+        "assigned_to": {
+            "id": order.assigned_to.id,
+            "name": order.assigned_to.full_name or order.assigned_to.email,
+            "email": order.assigned_to.email,
+        } if order.assigned_to else None,
+        "contacts": [
+            {"id": oc.id, "contact_id": oc.contact_id, "name": oc.contact.name, "email": oc.contact.email}
+            for oc in (order.contacts or []) if oc.contact
+        ],
         "created_by": order.created_by,
         "created_at": order.created_at.isoformat(),
         "updated_at": order.updated_at.isoformat() if order.updated_at else None,
         "current_phase": _phase_dict(order.current_phase) if order.current_phase else None,
     }
-    return d
 
 
 async def _get_order_or_404(order_id: str, db: AsyncSession) -> Order:
@@ -66,6 +74,8 @@ async def _get_order_or_404(order_id: str, db: AsyncSession) -> Order:
             selectinload(Order.documents),
             selectinload(Order.tasks),
             selectinload(Order.time_entries),
+            selectinload(Order.assigned_to),
+            selectinload(Order.contacts).selectinload(OrderContact.contact),
         )
         .where(Order.id == order_id)
     )
@@ -158,6 +168,7 @@ class UpdateOrderBody(BaseModel):
     title: str | None = None
     description: str | None = None
     status: str | None = None
+    assigned_to_user_id: str | None = None
 
 
 @router.put("/{order_id}")
@@ -168,14 +179,67 @@ async def update_order(
     db: AsyncSession = Depends(get_db),
 ):
     order = await _get_order_or_404(order_id, db)
+    old_status = order.status
+    old_phase_name = order.current_phase.name if order.current_phase else None
+
     if body.title is not None:
         order.title = body.title
     if body.description is not None:
         order.description = body.description
     if body.status is not None:
         order.status = body.status
+    if body.assigned_to_user_id is not None:
+        order.assigned_to_user_id = body.assigned_to_user_id or None
+
     await db.commit()
-    return await _get_order_or_404(order_id, db)
+    order = await _get_order_or_404(order_id, db)
+
+    # Skicka notiser asynkront
+    try:
+        from app.graph.order_mailer import send_order_status_changed
+        if body.status and body.status != old_status:
+            await send_order_status_changed(order, old_status, body.status)
+    except Exception:
+        pass
+
+    return _order_dict(order)
+
+
+@router.post("/{order_id}/contacts", status_code=201)
+async def add_order_contact(
+    order_id: str,
+    body: dict,
+    _: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    order = await _get_order_or_404(order_id, db)
+    contact_id = body.get("contact_id")
+    if not contact_id:
+        raise HTTPException(status_code=400, detail="contact_id saknas")
+    contact = await db.get(CustomerContact, contact_id)
+    if not contact:
+        raise HTTPException(status_code=404, detail="Kontakt hittades inte")
+    # Undvik duplikat
+    for oc in order.contacts:
+        if oc.contact_id == contact_id:
+            return _order_dict(order)
+    db.add(OrderContact(id=str(uuid.uuid4()), order_id=order_id, contact_id=contact_id))
+    await db.commit()
+    return _order_dict(await _get_order_or_404(order_id, db))
+
+
+@router.delete("/{order_id}/contacts/{oc_id}", status_code=204)
+async def remove_order_contact(
+    order_id: str,
+    oc_id: str,
+    _: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    oc = await db.get(OrderContact, oc_id)
+    if not oc or oc.order_id != order_id:
+        raise HTTPException(status_code=404, detail="Kontakt ej funnen")
+    await db.delete(oc)
+    await db.commit()
 
 
 @router.delete("/{order_id}", status_code=204)
@@ -222,13 +286,23 @@ async def set_phase(
         .where(OrderPhaseTemplate.order_type == order.type)
         .order_by(OrderPhaseTemplate.position.desc())
     )
+    old_phase_name = order.current_phase.name if order.current_phase else None
     if last_phase and last_phase.id == body.phase_id:
         order.status = "completed"
     elif order.status == "completed":
         order.status = "active"
 
     await db.commit()
-    return await _get_order_or_404(order_id, db)
+    order = await _get_order_or_404(order_id, db)
+
+    try:
+        from app.graph.order_mailer import send_order_phase_changed
+        new_phase_name = order.current_phase.name if order.current_phase else None
+        await send_order_phase_changed(order, old_phase_name, new_phase_name)
+    except Exception:
+        pass
+
+    return _order_dict(order)
 
 
 # ── Dokument ──────────────────────────────────────────────────────────────────

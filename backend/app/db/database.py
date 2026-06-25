@@ -36,10 +36,12 @@ async def init_db() -> None:
             "ALTER TABLE ticket_messages ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC'",
             "ALTER TABLE ticket_attachments ALTER COLUMN uploaded_at TYPE TIMESTAMPTZ USING uploaded_at AT TIME ZONE 'UTC'",
             "ALTER TABLE ticket_history ALTER COLUMN changed_at TYPE TIMESTAMPTZ USING changed_at AT TIME ZONE 'UTC'",
+            "ALTER TABLE orders ADD COLUMN IF NOT EXISTS assigned_to_user_id VARCHAR REFERENCES users(id)",
         ]:
             await conn.execute(text(stmt))
     await _seed_phase_templates()
     await _seed_ticket_defaults()
+    await _seed_notification_settings()
 
 
 async def _seed_phase_templates() -> None:
@@ -128,3 +130,37 @@ async def get_db():
         raise
     finally:
         await session.close()
+
+
+async def _seed_notification_settings() -> None:
+    """Skapa standardinställningar för notifikationer om de saknas."""
+    from app.db.models import NotificationSetting
+    from sqlalchemy import select
+
+    defaults = [
+        # event_type, label, enabled, notify_customer, notify_assigned, notify_internal
+        ("ticket_created",        "Nytt ärende skapat",              True,  True,  False, False),
+        ("ticket_reply_staff",    "Personal svarar på ärende",       True,  True,  False, False),
+        ("ticket_reply_customer", "Kund svarar på ärende",           True,  False, True,  False),
+        ("ticket_status_changed", "Ärendestatus ändrad",             False, False, True,  False),
+        ("ticket_assigned",       "Ärende tilldelat tekniker",       True,  False, True,  False),
+        ("ticket_sla_warning",    "SLA-varning",                     True,  False, True,  False),
+        ("order_created",         "Ny order/projekt skapad",         True,  True,  False, False),
+        ("order_status_changed",  "Order/projekt status ändrad",     True,  True,  True,  False),
+        ("order_phase_changed",   "Order/projekt fas ändrad",        True,  True,  False, False),
+    ]
+
+    async with AsyncSessionLocal() as session:
+        for (event_type, label, enabled, notify_customer, notify_assigned, notify_internal) in defaults:
+            existing = await session.get(NotificationSetting, event_type)
+            if not existing:
+                session.add(NotificationSetting(
+                    event_type=event_type,
+                    label=label,
+                    enabled=enabled,
+                    notify_customer=notify_customer,
+                    notify_assigned=notify_assigned,
+                    notify_internal=notify_internal,
+                    internal_email="",
+                ))
+        await session.commit()

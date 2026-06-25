@@ -687,7 +687,6 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
   <div class="nav" data-v="orders" id="nav-orders" onclick="nav('orders')"><i class="ti ti-clipboard-list"></i><span class="nav-label"> Order & Projekt</span></div>
   <div class="nav" data-v="tickets" id="nav-tickets" onclick="nav('tickets')"><i class="ti ti-ticket"></i><span class="nav-label"> Ärenden</span></div>
   <div class="sb-section" id="nav-section-config">Konfiguration</div>
-  <div class="nav" data-v="users" id="nav-users" onclick="nav('users')"><i class="ti ti-users"></i><span class="nav-label"> Användare</span></div>
   <div class="nav" data-v="add-customer" id="nav-add-customer" onclick="nav('add-customer')"><i class="ti ti-plus"></i><span class="nav-label"> Lägg till kund</span></div>
   <div class="nav" data-v="settings" id="nav-settings" onclick="nav('settings')"><i class="ti ti-settings"></i><span class="nav-label"> Inställningar</span></div>
   <div class="sb-space"></div>
@@ -950,6 +949,14 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
           <button class="btn btn-p btn-sm" id="cd-new-contact-btn" onclick="openNewContactModal()"><i class="ti ti-plus"></i> Lägg till kontakt</button>
         </div>
         <div id="cd-contacts-list"><div class="skel" style="padding:32px">Laddar kontakter...</div></div>
+        <!-- Portalanvändare för denna kund -->
+        <div id="cd-portal-users-section" style="display:none;margin-top:24px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div class="fsec" style="margin:0">Portalanvändare</div>
+            <button class="btn btn-p btn-sm" onclick="openCreatePortalUser()"><i class="ti ti-plus"></i> Ny portalanvändare</button>
+          </div>
+          <div id="cd-portal-users-list"></div>
+        </div>
       </div>
 
       <div style="display:flex;gap:9px;margin-top:14px" id="cd-admin-actions">
@@ -1115,10 +1122,12 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
         <div style="width:180px;flex-shrink:0">
           <div class="settings-subnav">
             <div class="ssn-item ssn-active" id="ssn-email" onclick="switchSettingsTab('email')"><i class="ti ti-mail"></i> E-post</div>
+            <div class="ssn-item" id="ssn-notifications" onclick="switchSettingsTab('notifications')"><i class="ti ti-bell"></i> Notifieringar</div>
             <div class="ssn-item" id="ssn-integrations" onclick="switchSettingsTab('integrations')"><i class="ti ti-plug-connected"></i> Integrationer</div>
             <div class="ssn-item" id="ssn-reports" onclick="switchSettingsTab('reports')"><i class="ti ti-calendar"></i> Rapporter</div>
             <div class="ssn-item" id="ssn-orderstatus" onclick="switchSettingsTab('orderstatus')"><i class="ti ti-list-check"></i> Orderstatus</div>
             <div class="ssn-item" id="ssn-tickets" onclick="switchSettingsTab('tickets')"><i class="ti ti-ticket"></i> Ärenden</div>
+            <div class="ssn-item" id="ssn-users" onclick="switchSettingsTab('users')"><i class="ti ti-users"></i> Användare</div>
           </div>
         </div>
         <!-- Innehåll -->
@@ -1135,6 +1144,12 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
             <div class="fr"><label class="fl">Avsändaradress (rapporter)</label><input class="fi" id="s-graph-sender" placeholder="noreply@terafalk.com"></div>
             <div class="fr"><label class="fl">Support-inkorg &amp; ärendeavsändare</label><input class="fi" id="s-support-inbox" placeholder="support@terafalk.com"></div>
             <button class="btn btn-p btn-sm" onclick="saveAppSettings()" style="margin-top:4px"><i class="ti ti-check"></i> Spara e-postinställningar</button>
+          </div>
+
+          <!-- Notifieringar -->
+          <div id="stab-notifications" style="display:none">
+            <div class="fsec" style="margin-top:0">E-postnotifieringar</div>
+            <div id="notif-list"></div>
           </div>
 
           <!-- Integrationer -->
@@ -1195,6 +1210,15 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
             </div>
             <div class="fsec">SLA-tider per prioritet</div>
             <div id="s-sla-list"></div>
+          </div>
+
+          <!-- Användare -->
+          <div id="stab-users" style="display:none">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+              <div class="fsec" style="margin:0">Administratörer &amp; tekniker</div>
+              <button class="btn btn-p btn-sm" onclick="nav('users');setTimeout(openCreateUser,80)"><i class="ti ti-plus"></i> Ny användare</button>
+            </div>
+            <div id="s-users-list"></div>
           </div>
 
         </div>
@@ -1419,6 +1443,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
       <!-- Flikar (projekt har fler) -->
       <div class="cd-tabs" id="od-tabs">
         <div class="cd-tab active" data-tab="od-info" onclick="switchOdTab('od-info')"><i class="ti ti-info-circle"></i> Info</div>
+        <div class="cd-tab" data-tab="od-people" onclick="switchOdTab('od-people')"><i class="ti ti-users"></i> Tilldelning</div>
         <div class="cd-tab" data-tab="od-documents" onclick="switchOdTab('od-documents')"><i class="ti ti-file"></i> Dokument</div>
         <div class="cd-tab od-project-only" data-tab="od-gantt" onclick="switchOdTab('od-gantt')" style="display:none"><i class="ti ti-calendar-stats"></i> Planering</div>
         <div class="cd-tab od-project-only" data-tab="od-time" onclick="switchOdTab('od-time')" style="display:none"><i class="ti ti-clock"></i> Arbetad tid</div>
@@ -1435,6 +1460,25 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
             </div>
           </div>
           <div class="cb"><p id="od-description" style="font-size:13px;color:var(--sub);line-height:1.6">—</p></div>
+        </div>
+      </div>
+
+      <!-- Flik: Tilldelning & kontakter -->
+      <div class="cd-tab-pane" id="od-pane-od-people">
+        <div class="card">
+          <div class="ch"><span class="cht">Tilldelad tekniker</span></div>
+          <div class="cb" id="od-assigned-wrap">
+            <select class="fi" id="od-assigned-sel" style="max-width:320px" onchange="saveOrderAssignee(this.value)">
+              <option value="">— Ingen —</option>
+            </select>
+          </div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <div class="ch">
+            <span class="cht">Kontaktpersoner</span>
+            <button class="btn btn-p btn-sm" id="od-add-contact-btn" onclick="openOrderContactPicker()"><i class="ti ti-plus"></i> Lägg till</button>
+          </div>
+          <div class="cb0" id="od-contacts-list"><div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Inga kontakter kopplade.</div></div>
         </div>
       </div>
 
@@ -2968,7 +3012,7 @@ async function submitCreateUser() {
     await api('/api/users', { method: 'POST', body: JSON.stringify({ email, password, full_name, role, customer_id }) });
     t(`Användare ${email} skapad`);
     closeCreateUser();
-    loadUsers();
+    _refreshAllUserLists();
   } catch (e) {
     errMsg.textContent = e.message;
     errEl.style.display = 'block';
@@ -3049,7 +3093,7 @@ async function submitEditUser() {
     await api(`/api/users/${_editingUserId}`, { method: 'PUT', body: JSON.stringify(body) });
     t(`${email} uppdaterad`);
     closeEditUser();
-    loadUsers();
+    _refreshAllUserLists();
   } catch (e) {
     errMsg.textContent = e.message;
     errEl.style.display = 'block';
@@ -3087,9 +3131,23 @@ async function deleteUser(userId, email) {
   try {
     await api(`/api/users/${userId}`, { method: 'DELETE' });
     t(`${email} borttagen`);
-    loadUsers();
+    _refreshAllUserLists();
   } catch (e) {
     errToast('Kunde inte ta bort användare', e);
+  }
+}
+
+function _refreshAllUserLists() {
+  loadUsers();
+  // Also refresh settings users tab if visible
+  const settingsUsersEl = document.getElementById('s-users-list');
+  if (settingsUsersEl && document.getElementById('stab-users') && document.getElementById('stab-users').style.display !== 'none') {
+    loadSettingsUsers();
+  }
+  // Also refresh portal users if contacts tab is open
+  if (currentCustomerId) {
+    const section = document.getElementById('cd-portal-users-section');
+    if (section && section.style.display !== 'none') loadPortalUsers(currentCustomerId);
   }
 }
 
@@ -3203,7 +3261,15 @@ function switchCdTab(tab) {
   if (tab === 'orders' && currentCustomerId) loadCustomerOrders(currentCustomerId);
   if (tab === 'tickets' && currentCustomerId) loadCustomerTickets(currentCustomerId);
   if (tab === 'reports' && currentCustomerId) loadCustomerReports(currentCustomerId);
-  if (tab === 'contacts' && currentCustomerId) loadCustomerContacts(currentCustomerId);
+  if (tab === 'contacts' && currentCustomerId) {
+    loadCustomerContacts(currentCustomerId);
+    const isAdmin = currentUser && currentUser.role === 'admin';
+    const section = document.getElementById('cd-portal-users-section');
+    if (section) {
+      section.style.display = isAdmin ? '' : 'none';
+      if (isAdmin) loadPortalUsers(currentCustomerId);
+    }
+  }
 }
 
 // ── Kundkontakter ─────────────────────────────────────────────────────────────
@@ -3234,6 +3300,50 @@ async function loadCustomerContacts(customerId) {
       </tbody>
     </table></div></div>`;
   } catch(e) { el.innerHTML = `<div style="color:var(--err);padding:16px">${e.message}</div>`; }
+}
+
+// ── Portalanvändare på kundsidan ──────────────────────────────────────────
+
+async function loadPortalUsers(customerId) {
+  const el = document.getElementById('cd-portal-users-list');
+  if (!el) return;
+  el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Laddar...</div>';
+  try {
+    const users = await api('/api/users');
+    const portalUsers = users.filter(u => u.role === 'customer' && u.customer_id === customerId);
+    if (!portalUsers.length) {
+      el.innerHTML = '<div style="color:var(--muted);font-size:13px">Inga portalanvändare kopplade till denna kund.</div>';
+      return;
+    }
+    el.innerHTML = `<table class="tbl"><thead><tr><th>Namn</th><th>E-post</th><th>Status</th><th></th></tr></thead><tbody>` +
+      portalUsers.map(u => {
+        const statusBadge = u.is_active ? `<span class="b b-ok">Aktiv</span>` : `<span class="b b-err">Inaktiv</span>`;
+        return `<tr>
+          <td style="font-weight:600">${escapeHtml(u.full_name||'—')}</td>
+          <td style="font-size:12px;color:var(--sub)">${escapeHtml(u.email)}</td>
+          <td>${statusBadge}</td>
+          <td style="text-align:right;white-space:nowrap">
+            <button class="btn btn-g btn-sm" onclick="openEditUser('${u.id}')"><i class="ti ti-edit"></i></button>
+            <button class="btn btn-danger btn-sm" style="margin-left:4px" onclick="deleteUser('${u.id}','${escapeHtml(u.email)}')"><i class="ti ti-trash"></i></button>
+          </td>
+        </tr>`;
+      }).join('') + `</tbody></table>`;
+  } catch(e) {
+    el.innerHTML = `<div class="alert al-e"><i class="ti ti-alert-circle"></i><span>${e.message}</span></div>`;
+  }
+}
+
+async function openCreatePortalUser() {
+  // Navigate to users view so the create panel is visible
+  nav('users');
+  await openCreateUser();
+  // Pre-select the current customer
+  if (currentCustomerId) {
+    const sel = document.getElementById('cu-customer-id');
+    if (sel) sel.value = currentCustomerId;
+    document.getElementById('cu-role').value = 'customer';
+    toggleCuCustomer();
+  }
 }
 
 function openNewContactModal() {
@@ -3509,6 +3619,115 @@ function switchOdTab(tab) {
   });
   document.querySelectorAll('#v-order-detail .cd-tab-pane').forEach(el => {
     el.classList.toggle('active', el.id === 'od-pane-' + tab);
+  });
+  if (tab === 'od-people' && _currentOrder) loadOrderPeople(_currentOrder.id);
+}
+
+// ── Order tilldelning & kontakter ─────────────────────────────────────────
+
+async function loadOrderPeople(orderId) {
+  try {
+    const [order, users] = await Promise.all([
+      api('/api/orders/' + orderId),
+      api('/api/users'),
+    ]);
+    _currentOrder = order;
+
+    // Assignee dropdown
+    const sel = document.getElementById('od-assigned-sel');
+    const staff = users.filter(u => u.role === 'admin' || u.role === 'technician');
+    sel.innerHTML = '<option value="">— Ingen —</option>' +
+      staff.map(u => `<option value="${u.id}" ${order.assigned_to && order.assigned_to.id === u.id ? 'selected' : ''}>${escapeHtml(u.full_name || u.email)}</option>`).join('');
+
+    const isAdmin = currentUser && currentUser.role === 'admin';
+    sel.disabled = !isAdmin;
+    document.getElementById('od-add-contact-btn').style.display = isAdmin ? '' : 'none';
+
+    renderOrderContacts(order.contacts || [], isAdmin);
+  } catch(e) { t(e.message, 'err'); }
+}
+
+function renderOrderContacts(contacts, isAdmin) {
+  const el = document.getElementById('od-contacts-list');
+  if (!contacts.length) {
+    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Inga kontakter kopplade.</div>';
+    return;
+  }
+  el.innerHTML = `<table class="tbl"><thead><tr><th>Namn</th><th>E-post</th><th></th></tr></thead><tbody>` +
+    contacts.map(oc => `<tr>
+        <td style="font-weight:600">${escapeHtml(oc.name||'—')}</td>
+        <td style="font-size:12px">${escapeHtml(oc.email||'—')}</td>
+        <td>${isAdmin ? `<button class="btn btn-danger btn-sm btn-ico" onclick="removeOrderContact('${oc.id}')"><i class="ti ti-trash"></i></button>` : ''}</td>
+      </tr>`).join('') + `</tbody></table>`;
+}
+
+async function saveOrderAssignee(userId) {
+  if (!_currentOrder) return;
+  try {
+    _currentOrder = await api('/api/orders/' + _currentOrder.id, {
+      method: 'PUT', body: JSON.stringify({ assigned_to_user_id: userId || null })
+    });
+    t('Tilldelad sparad');
+  } catch(e) { t(e.message, 'err'); }
+}
+
+async function openOrderContactPicker() {
+  if (!_currentOrder) return;
+  // Load contacts for current order's customer
+  const customerId = _currentOrder.customer_id;
+  if (!customerId) { t('Ingen kund kopplad', 'err'); return; }
+  try {
+    const contacts = await api('/api/customers/' + customerId + '/contacts');
+    const existing = new Set((_currentOrder.contacts || []).map(oc => oc.contact_id));
+    const available = contacts.filter(c => !existing.has(c.id));
+    if (!available.length) { t('Alla kontakter är redan tillagda'); return; }
+
+    const chosen = await showPickerModal('Välj kontaktperson', available.map(c => ({
+      id: c.id, label: c.name + (c.email ? ' · ' + c.email : '')
+    })));
+    if (!chosen) return;
+    await api('/api/orders/' + _currentOrder.id + '/contacts', {
+      method: 'POST', body: JSON.stringify({ contact_id: chosen })
+    });
+    await loadOrderPeople(_currentOrder.id);
+    t('Kontakt tillagd');
+  } catch(e) { t(e.message, 'err'); }
+}
+
+async function removeOrderContact(ocId) {
+  if (!_currentOrder) return;
+  try {
+    await api('/api/orders/' + _currentOrder.id + '/contacts/' + ocId, { method: 'DELETE' });
+    await loadOrderPeople(_currentOrder.id);
+    t('Kontakt borttagen');
+  } catch(e) { t(e.message, 'err'); }
+}
+
+// Simple inline picker modal
+function showPickerModal(title, items) {
+  return new Promise(resolve => {
+    const existing = document.getElementById('_picker-modal');
+    if (existing) existing.remove();
+    const div = document.createElement('div');
+    div.id = '_picker-modal';
+    div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:600;display:flex;align-items:center;justify-content:center';
+    div.innerHTML = `
+      <div style="background:#fff;border-radius:12px;padding:24px;width:400px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div style="font-size:15px;font-weight:700">${escapeHtml(title)}</div>
+          <button class="btn btn-g btn-sm btn-ico" onclick="document.getElementById('_picker-modal').remove();"><i class="ti ti-x"></i></button>
+        </div>
+        <div>${items.map(it => `
+          <div style="padding:10px 12px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;cursor:pointer;font-size:13px"
+               onclick="document.getElementById('_picker-modal').remove();window._pickerResolve('${it.id}')"
+               onmouseover="this.style.background='var(--tint2)'" onmouseout="this.style.background=''">
+            ${escapeHtml(it.label)}
+          </div>`).join('')}
+        </div>
+      </div>`;
+    window._pickerResolve = resolve;
+    div.addEventListener('click', e => { if (e.target === div) { div.remove(); resolve(null); } });
+    document.body.appendChild(div);
   });
 }
 
@@ -4002,12 +4221,113 @@ async function loadPhaseTemplates() {
 }
 
 function switchSettingsTab(tab) {
-  ['email','integrations','reports','orderstatus','tickets'].forEach(id => {
+  ['email','notifications','integrations','reports','orderstatus','tickets','users'].forEach(id => {
     document.getElementById('stab-' + id).style.display = id === tab ? '' : 'none';
     const el = document.getElementById('ssn-' + id);
     if (el) el.classList.toggle('ssn-active', id === tab);
   });
   if (tab === 'tickets') loadTicketSettings();
+  if (tab === 'notifications') loadNotificationSettings();
+  if (tab === 'users') loadSettingsUsers();
+}
+
+// ── Notification settings ─────────────────────────────────────────────────
+
+let _notifSettings = [];
+
+async function loadNotificationSettings() {
+  const el = document.getElementById('notif-list');
+  el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Laddar...</div>';
+  try {
+    _notifSettings = await api('/api/notifications');
+    renderNotifSettings();
+  } catch(e) {
+    el.innerHTML = `<div class="alert al-e"><i class="ti ti-alert-circle"></i><span>${e.message}</span></div>`;
+  }
+}
+
+function renderNotifSettings() {
+  const el = document.getElementById('notif-list');
+  if (!_notifSettings.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Inga notifieringar konfigurerade.</div>';
+    return;
+  }
+  el.innerHTML = `
+    <table class="tbl" style="margin-top:8px">
+      <thead><tr>
+        <th>Händelse</th>
+        <th style="text-align:center;width:80px">Aktiverad</th>
+        <th style="text-align:center;width:90px">→ Kund</th>
+        <th style="text-align:center;width:90px">→ Tekniker</th>
+        <th style="text-align:center;width:90px">→ Internt</th>
+        <th style="width:200px">Intern e-post</th>
+      </tr></thead>
+      <tbody>` + _notifSettings.map(s => `
+        <tr>
+          <td style="font-size:13px">${escapeHtml(s.label || s.event_type)}</td>
+          <td style="text-align:center"><input type="checkbox" ${s.enabled ? 'checked' : ''} onchange="saveNotifSetting('${s.event_type}','enabled',this.checked)"></td>
+          <td style="text-align:center"><input type="checkbox" ${s.notify_customer ? 'checked' : ''} onchange="saveNotifSetting('${s.event_type}','notify_customer',this.checked)"></td>
+          <td style="text-align:center"><input type="checkbox" ${s.notify_assigned ? 'checked' : ''} onchange="saveNotifSetting('${s.event_type}','notify_assigned',this.checked)"></td>
+          <td style="text-align:center"><input type="checkbox" ${s.notify_internal ? 'checked' : ''} onchange="saveNotifSetting('${s.event_type}','notify_internal',this.checked)"></td>
+          <td><input class="fi" style="padding:4px 8px;font-size:12px" value="${escapeHtml(s.internal_email||'')}" placeholder="intern@foretag.se" onblur="saveNotifInternalEmail('${s.event_type}',this.value)"></td>
+        </tr>`).join('') + `
+      </tbody>
+    </table>`;
+}
+
+async function saveNotifSetting(eventType, field, value) {
+  try {
+    const updated = await api('/api/notifications/' + eventType, {
+      method: 'PUT', body: JSON.stringify({ [field]: value })
+    });
+    const idx = _notifSettings.findIndex(s => s.event_type === eventType);
+    if (idx >= 0) _notifSettings[idx] = updated;
+    t('Sparat');
+  } catch(e) { t(e.message, 'err'); }
+}
+
+async function saveNotifInternalEmail(eventType, value) {
+  try {
+    const updated = await api('/api/notifications/' + eventType, {
+      method: 'PUT', body: JSON.stringify({ internal_email: value })
+    });
+    const idx = _notifSettings.findIndex(s => s.event_type === eventType);
+    if (idx >= 0) _notifSettings[idx] = updated;
+    t('Sparat');
+  } catch(e) { t(e.message, 'err'); }
+}
+
+// ── Users in settings ─────────────────────────────────────────────────────
+
+async function loadSettingsUsers() {
+  const el = document.getElementById('s-users-list');
+  el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Laddar...</div>';
+  try {
+    const users = await api('/api/users');
+    const staff = users.filter(u => u.role === 'admin' || u.role === 'technician');
+    if (!staff.length) {
+      el.innerHTML = '<div style="color:var(--muted);font-size:13px">Inga användare.</div>';
+      return;
+    }
+    el.innerHTML = `<table class="tbl"><thead><tr><th>Namn</th><th>E-post</th><th>Roll</th><th>Status</th><th></th></tr></thead><tbody>` +
+      staff.map(u => {
+        const roleBadge = u.role === 'admin' ? `<span class="b b-info">Admin</span>` : `<span class="b b-muted">Tekniker</span>`;
+        const statusBadge = u.is_active ? `<span class="b b-ok">Aktiv</span>` : `<span class="b b-err">Inaktiv</span>`;
+        const isSelf = currentUser && currentUser.id === u.id;
+        return `<tr>
+          <td><div class="dn">${escapeHtml(u.full_name||'—')}</div></td>
+          <td style="font-size:12px;color:var(--sub)">${escapeHtml(u.email)}</td>
+          <td>${roleBadge}</td>
+          <td>${statusBadge}</td>
+          <td style="text-align:right;white-space:nowrap">
+            <button class="btn btn-g btn-sm" onclick="openEditUser('${u.id}')"><i class="ti ti-edit"></i></button>
+            ${isSelf ? '' : `<button class="btn btn-danger btn-sm" style="margin-left:4px" onclick="deleteUser('${u.id}','${escapeHtml(u.email)}')"><i class="ti ti-trash"></i></button>`}
+          </td>
+        </tr>`;
+      }).join('') + `</tbody></table>`;
+  } catch(e) {
+    el.innerHTML = `<div class="alert al-e"><i class="ti ti-alert-circle"></i><span>${e.message}</span></div>`;
+  }
 }
 
 function setPhaseTab(tab) {

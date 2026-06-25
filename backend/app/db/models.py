@@ -169,6 +169,7 @@ class Order(Base):
         String, ForeignKey("order_phase_templates.id"), nullable=True
     )
     status: Mapped[str] = mapped_column(String, default="active")  # active|completed|cancelled
+    assigned_to_user_id: Mapped[str | None] = mapped_column(String, ForeignKey("users.id"), nullable=True)
     created_by: Mapped[str | None] = mapped_column(String, ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -177,6 +178,7 @@ class Order(Base):
 
     customer: Mapped["Customer"] = relationship()
     current_phase: Mapped["OrderPhaseTemplate | None"] = relationship(back_populates="orders")
+    assigned_to: Mapped["User | None"] = relationship(foreign_keys=[assigned_to_user_id])
     documents: Mapped[list["OrderDocument"]] = relationship(
         back_populates="order", cascade="all, delete-orphan"
     )
@@ -184,6 +186,9 @@ class Order(Base):
         back_populates="order", cascade="all, delete-orphan"
     )
     time_entries: Mapped[list["TimeEntry"]] = relationship(
+        back_populates="order", cascade="all, delete-orphan"
+    )
+    contacts: Mapped[list["OrderContact"]] = relationship(
         back_populates="order", cascade="all, delete-orphan"
     )
 
@@ -460,3 +465,40 @@ class TicketTimeEntry(Base):
 
     ticket: Mapped["Ticket"] = relationship(back_populates="time_entries")
     user: Mapped["User | None"] = relationship()
+
+
+# ─────────────────────────────────────────────
+# Ordrar/projekt – kontakter & tilldelning
+# ─────────────────────────────────────────────
+
+class OrderContact(Base):
+    """Kontaktperson kopplad till en order/projekt (mottagare av notiser)."""
+
+    __tablename__ = "order_contacts"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    order_id: Mapped[str] = mapped_column(String, ForeignKey("orders.id"), nullable=False, index=True)
+    contact_id: Mapped[str] = mapped_column(String, ForeignKey("customer_contacts.id"), nullable=False)
+
+    order: Mapped["Order"] = relationship(back_populates="contacts")
+    contact: Mapped["CustomerContact"] = relationship()
+
+
+# ─────────────────────────────────────────────
+# Notifikationsinställningar
+# ─────────────────────────────────────────────
+
+class NotificationSetting(Base):
+    """Konfigurerbar e-postnotifiering per händelsetyp."""
+
+    __tablename__ = "notification_settings"
+
+    event_type: Mapped[str] = mapped_column(String, primary_key=True)
+    # Händelsebeskrivning (visas i UI)
+    label: Mapped[str] = mapped_column(String, nullable=False, default="")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    notify_customer: Mapped[bool] = mapped_column(Boolean, default=False)
+    notify_assigned: Mapped[bool] = mapped_column(Boolean, default=True)
+    notify_internal: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Valfri override-adress för intern notis (tomt = använd support_inbox)
+    internal_email: Mapped[str] = mapped_column(String, default="")
