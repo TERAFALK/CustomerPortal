@@ -949,14 +949,6 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
           <button class="btn btn-p btn-sm" id="cd-new-contact-btn" onclick="openNewContactModal()"><i class="ti ti-plus"></i> Lägg till kontakt</button>
         </div>
         <div id="cd-contacts-list"><div class="skel" style="padding:32px">Laddar kontakter...</div></div>
-        <!-- Portalanvändare för denna kund -->
-        <div id="cd-portal-users-section" style="display:none;margin-top:24px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-            <div class="fsec" style="margin:0">Portalanvändare</div>
-            <button class="btn btn-p btn-sm" onclick="openCreatePortalUser()"><i class="ti ti-plus"></i> Ny portalanvändare</button>
-          </div>
-          <div id="cd-portal-users-list"></div>
-        </div>
       </div>
 
       <div style="display:flex;gap:9px;margin-top:14px" id="cd-admin-actions">
@@ -1616,8 +1608,14 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
         <input type="checkbox" id="mc-receives-reports"> Rapportmottagare
       </label>
       <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-        <input type="checkbox" id="mc-has-portal-access"> Portalåtkomst
+        <input type="checkbox" id="mc-has-portal-access" onchange="toggleMcPortalPassword()"> Portalåtkomst
       </label>
+    </div>
+    <div id="mc-portal-password-row" style="display:none;margin-top:8px">
+      <div class="fr" style="margin:0">
+        <label class="fl" id="mc-password-label">Lösenord *</label>
+        <input class="fi" type="password" id="mc-password" placeholder="Minst 8 tecken" autocomplete="new-password">
+      </div>
     </div>
     <input type="hidden" id="mc-contact-id">
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
@@ -3147,16 +3145,8 @@ async function deleteUser(userId, email) {
 
 function _refreshAllUserLists() {
   loadUsers();
-  // Also refresh settings users tab if visible
-  const settingsUsersEl = document.getElementById('s-users-list');
-  if (settingsUsersEl && document.getElementById('stab-users') && document.getElementById('stab-users').style.display !== 'none') {
-    loadSettingsUsers();
-  }
-  // Also refresh portal users if contacts tab is open
-  if (currentCustomerId) {
-    const section = document.getElementById('cd-portal-users-section');
-    if (section && section.style.display !== 'none') loadPortalUsers(currentCustomerId);
-  }
+  const stab = document.getElementById('stab-users');
+  if (stab && stab.style.display !== 'none') loadSettingsUsers();
 }
 
 // ── Inställningar ─────────────────────────────────────────────────────────
@@ -3269,15 +3259,7 @@ function switchCdTab(tab) {
   if (tab === 'orders' && currentCustomerId) loadCustomerOrders(currentCustomerId);
   if (tab === 'tickets' && currentCustomerId) loadCustomerTickets(currentCustomerId);
   if (tab === 'reports' && currentCustomerId) loadCustomerReports(currentCustomerId);
-  if (tab === 'contacts' && currentCustomerId) {
-    loadCustomerContacts(currentCustomerId);
-    const isAdmin = currentUser && currentUser.role === 'admin';
-    const section = document.getElementById('cd-portal-users-section');
-    if (section) {
-      section.style.display = isAdmin ? '' : 'none';
-      if (isAdmin) loadPortalUsers(currentCustomerId);
-    }
-  }
+  if (tab === 'contacts' && currentCustomerId) loadCustomerContacts(currentCustomerId);
 }
 
 // ── Kundkontakter ─────────────────────────────────────────────────────────────
@@ -3303,7 +3285,7 @@ async function loadCustomerContacts(customerId) {
           <td style="text-align:center">${c.receives_reports ? '<i class="ti ti-check" style="color:var(--ok)"></i>' : ''}</td>
           <td style="text-align:center">${c.has_portal_access ? '<i class="ti ti-check" style="color:var(--ok)"></i>' : ''}</td>
           <td style="display:flex;gap:4px">
-            <button class="btn btn-g btn-sm btn-ico" onclick="openEditContactModal('${c.id}','${escapeHtml(c.name)}','${escapeHtml(c.email)}','${escapeHtml(c.phone||'')}','${escapeHtml(c.title||'')}',${!!c.receives_reports},${!!c.has_portal_access})"><i class="ti ti-edit"></i></button>
+            <button class="btn btn-g btn-sm btn-ico" onclick="openEditContactModal('${c.id}','${escapeHtml(c.name)}','${escapeHtml(c.email)}','${escapeHtml(c.phone||'')}','${escapeHtml(c.title||'')}',${!!c.receives_reports},${!!c.has_portal_access},${!!c.user_id})"><i class="ti ti-edit"></i></button>
             <button class="btn btn-danger btn-sm btn-ico" onclick="deleteContact('${c.id}')"><i class="ti ti-trash"></i></button>
           </td>
         </tr>`).join('')}
@@ -3312,48 +3294,15 @@ async function loadCustomerContacts(customerId) {
   } catch(e) { el.innerHTML = `<div style="color:var(--err);padding:16px">${e.message}</div>`; }
 }
 
-// ── Portalanvändare på kundsidan ──────────────────────────────────────────
 
-async function loadPortalUsers(customerId) {
-  const el = document.getElementById('cd-portal-users-list');
-  if (!el) return;
-  el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Laddar...</div>';
-  try {
-    const users = await api('/api/users');
-    const portalUsers = users.filter(u => u.role === 'customer' && u.customer_id === customerId);
-    if (!portalUsers.length) {
-      el.innerHTML = '<div style="color:var(--muted);font-size:13px">Inga portalanvändare kopplade till denna kund.</div>';
-      return;
-    }
-    el.innerHTML = `<table class="tbl"><thead><tr><th>Namn</th><th>E-post</th><th>Status</th><th></th></tr></thead><tbody>` +
-      portalUsers.map(u => {
-        const statusBadge = u.is_active ? `<span class="b b-ok">Aktiv</span>` : `<span class="b b-err">Inaktiv</span>`;
-        return `<tr>
-          <td style="font-weight:600">${escapeHtml(u.full_name||'—')}</td>
-          <td style="font-size:12px;color:var(--sub)">${escapeHtml(u.email)}</td>
-          <td>${statusBadge}</td>
-          <td style="text-align:right;white-space:nowrap">
-            <button class="btn btn-g btn-sm" onclick="openEditUser('${u.id}')"><i class="ti ti-edit"></i></button>
-            <button class="btn btn-danger btn-sm" style="margin-left:4px" onclick="deleteUser('${u.id}','${escapeHtml(u.email)}')"><i class="ti ti-trash"></i></button>
-          </td>
-        </tr>`;
-      }).join('') + `</tbody></table>`;
-  } catch(e) {
-    el.innerHTML = `<div class="alert al-e"><i class="ti ti-alert-circle"></i><span>${e.message}</span></div>`;
-  }
-}
-
-async function openCreatePortalUser() {
-  // Navigate to users view so the create panel is visible
-  nav('users');
-  await openCreateUser();
-  // Pre-select the current customer
-  if (currentCustomerId) {
-    const sel = document.getElementById('cu-customer-id');
-    if (sel) sel.value = currentCustomerId;
-    document.getElementById('cu-role').value = 'customer';
-    toggleCuCustomer();
-  }
+function toggleMcPortalPassword() {
+  const checked = document.getElementById('mc-has-portal-access').checked;
+  const row = document.getElementById('mc-portal-password-row');
+  const hasExistingUser = !!document.getElementById('mc-contact-id').value &&
+    document.getElementById('mc-contact-id').dataset.hasUser === 'true';
+  row.style.display = checked ? '' : 'none';
+  document.getElementById('mc-password-label').textContent =
+    (checked && hasExistingUser) ? 'Nytt lösenord (lämna tomt för oförändrat)' : 'Lösenord *';
 }
 
 function openNewContactModal() {
@@ -3363,20 +3312,28 @@ function openNewContactModal() {
   document.getElementById('mc-phone').value = '';
   document.getElementById('mc-title-input').value = '';
   document.getElementById('mc-contact-id').value = '';
+  document.getElementById('mc-contact-id').dataset.hasUser = 'false';
   document.getElementById('mc-receives-reports').checked = false;
   document.getElementById('mc-has-portal-access').checked = false;
+  document.getElementById('mc-password').value = '';
+  document.getElementById('mc-portal-password-row').style.display = 'none';
   openModal('modal-contact');
 }
 
-function openEditContactModal(id, name, email, phone, title, receivesReports, hasPortalAccess) {
+function openEditContactModal(id, name, email, phone, title, receivesReports, hasPortalAccess, hasUser) {
   document.getElementById('mc-title').textContent = 'Redigera kontaktperson';
   document.getElementById('mc-name').value = name;
   document.getElementById('mc-email').value = email;
   document.getElementById('mc-phone').value = phone;
   document.getElementById('mc-title-input').value = title;
   document.getElementById('mc-contact-id').value = id;
+  document.getElementById('mc-contact-id').dataset.hasUser = hasUser ? 'true' : 'false';
   document.getElementById('mc-receives-reports').checked = !!receivesReports;
   document.getElementById('mc-has-portal-access').checked = !!hasPortalAccess;
+  document.getElementById('mc-password').value = '';
+  document.getElementById('mc-portal-password-row').style.display = hasPortalAccess ? '' : 'none';
+  document.getElementById('mc-password-label').textContent =
+    hasPortalAccess ? 'Nytt lösenord (lämna tomt för oförändrat)' : 'Lösenord *';
   openModal('modal-contact');
 }
 
@@ -3387,18 +3344,24 @@ async function saveContact() {
   const title = document.getElementById('mc-title-input').value.trim();
   const receives_reports = document.getElementById('mc-receives-reports').checked;
   const has_portal_access = document.getElementById('mc-has-portal-access').checked;
+  const password = document.getElementById('mc-password').value;
   const contactId = document.getElementById('mc-contact-id').value;
+  const hasUser = document.getElementById('mc-contact-id').dataset.hasUser === 'true';
   if (!name) { t('Namn krävs', 'err'); return; }
   if (!email) { t('E-post krävs', 'err'); return; }
+  if (has_portal_access && !contactId && !password) { t('Lösenord krävs för portalåtkomst', 'err'); return; }
+  if (has_portal_access && !hasUser && !password) { t('Lösenord krävs för portalåtkomst', 'err'); return; }
+  const body = { name, email, phone, title, receives_reports, has_portal_access };
+  if (password) body.password = password;
   try {
     if (contactId) {
       await api('/api/customers/' + currentCustomerId + '/contacts/' + contactId, {
-        method: 'PUT', body: JSON.stringify({ name, email, phone, title, receives_reports, has_portal_access }),
+        method: 'PUT', body: JSON.stringify(body),
       });
       t('Kontaktperson uppdaterad');
     } else {
       await api('/api/customers/' + currentCustomerId + '/contacts', {
-        method: 'POST', body: JSON.stringify({ name, email, phone, title, receives_reports, has_portal_access }),
+        method: 'POST', body: JSON.stringify(body),
       });
       t('Kontaktperson tillagd');
     }

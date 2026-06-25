@@ -42,6 +42,7 @@ class ContactCreate(BaseModel):
     title: str = ""
     receives_reports: bool = False
     has_portal_access: bool = False
+    password: str | None = None  # required when has_portal_access=True and no existing user
 
 
 class ContactUpdate(BaseModel):
@@ -51,12 +52,14 @@ class ContactUpdate(BaseModel):
     title: str | None = None
     receives_reports: bool | None = None
     has_portal_access: bool | None = None
+    password: str | None = None  # set to change portal password
 
 
 def _contact_dict(c: "CustomerContact") -> dict:
     return {
         "id": c.id, "name": c.name, "email": c.email, "phone": c.phone, "title": c.title,
         "receives_reports": c.receives_reports, "has_portal_access": c.has_portal_access,
+        "user_id": c.user_id,
     }
 
 
@@ -215,6 +218,57 @@ async def list_contacts(
     return [_contact_dict(c) for c in contacts.all()]
 
 
+async def _sync_portal_user(c: CustomerContact, password: str | None, customer_id: str, db: AsyncSession) -> None:
+    """Skapa, uppdatera eller inaktivera portalanvändare baserat på has_portal_access."""
+    from app.core.security import get_password_hash
+    if c.has_portal_access:
+        if c.user_id:
+            # Uppdatera befintlig användare
+            u = await db.get(User, c.user_id)
+            if u:
+                u.full_name = c.name
+                u.email = c.email
+                u.is_active = True
+                if password:
+                    u.hashed_password = get_password_hash(password)
+                return
+        # Skapa ny användare
+        if not password:
+            raise HTTPException(400, "Lösenord krävs för portalåtkomst")
+        existing = await db.scalar(select(User).where(User.email == c.email))
+        if existing:
+            # Återanvänd befintlig användare om den tillhör rätt kund
+            if existing.customer_id and existing.customer_id != customer_id:
+                raise HTTPException(400, "E-postadressen används av en annan kunds portalanvändare")
+            existing.full_name = c.name
+            existing.customer_id = customer_id
+            existing.role = "customer"
+            existing.is_active = True
+            if password:
+                existing.hashed_password = get_password_hash(password)
+            c.user_id = existing.id
+        else:
+            from app.core.security import get_password_hash
+            u = User(
+                email=c.email,
+                hashed_password=get_password_hash(password),
+                full_name=c.name,
+                role="customer",
+                customer_id=customer_id,
+                is_active=True,
+            )
+            db.add(u)
+            await db.flush()
+            c.user_id = u.id
+    else:
+        # Ta bort portalåtkomst — inaktivera kopplade användaren
+        if c.user_id:
+            u = await db.get(User, c.user_id)
+            if u:
+                u.is_active = False
+            c.user_id = None
+
+
 @router.post("/{customer_id}/contacts", status_code=201)
 async def create_contact(
     customer_id: str,
@@ -222,8 +276,11 @@ async def create_contact(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    c = CustomerContact(customer_id=customer_id, **body.model_dump())
+    data = body.model_dump(exclude={"password"})
+    c = CustomerContact(customer_id=customer_id, **data)
     db.add(c)
+    await db.flush()
+    await _sync_portal_user(c, body.password, customer_id, db)
     await db.commit()
     await db.refresh(c)
     return _contact_dict(c)
@@ -240,8 +297,9 @@ async def update_contact(
     c = await db.get(CustomerContact, contact_id)
     if not c or c.customer_id != customer_id:
         raise HTTPException(404, "Kontaktperson hittades inte")
-    for field, value in body.model_dump(exclude_none=True).items():
+    for field, value in body.model_dump(exclude_none=True, exclude={"password"}).items():
         setattr(c, field, value)
+    await _sync_portal_user(c, body.password, customer_id, db)
     await db.commit()
     await db.refresh(c)
     return _contact_dict(c)

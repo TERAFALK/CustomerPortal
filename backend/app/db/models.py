@@ -69,9 +69,11 @@ class CustomerContact(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     receives_reports: Mapped[bool] = mapped_column(Boolean, default=False)
     has_portal_access: Mapped[bool] = mapped_column(Boolean, default=False)
+    user_id: Mapped[str | None] = mapped_column(String, ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     customer: Mapped["Customer"] = relationship(back_populates="contacts")
+    user: Mapped["User | None"] = relationship(foreign_keys=[user_id])
 
 
 class IntegrationCredential(Base):

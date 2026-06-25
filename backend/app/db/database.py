@@ -39,6 +39,7 @@ async def init_db() -> None:
             "ALTER TABLE orders ADD COLUMN IF NOT EXISTS assigned_to_user_id VARCHAR REFERENCES users(id)",
             "ALTER TABLE customer_contacts ADD COLUMN IF NOT EXISTS receives_reports BOOLEAN NOT NULL DEFAULT FALSE",
             "ALTER TABLE customer_contacts ADD COLUMN IF NOT EXISTS has_portal_access BOOLEAN NOT NULL DEFAULT FALSE",
+            "ALTER TABLE customer_contacts ADD COLUMN IF NOT EXISTS user_id VARCHAR REFERENCES users(id)",
         ]:
             await conn.execute(text(stmt))
     await _seed_phase_templates()
