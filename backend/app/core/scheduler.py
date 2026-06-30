@@ -31,6 +31,10 @@ def start_scheduler() -> None:
         from app.core.sla_checker import check_sla_breaches
         await check_sla_breaches()
 
+    async def _auto_close_resolved():
+        from app.core.sla_checker import auto_close_resolved_tickets
+        await auto_close_resolved_tickets()
+
     _scheduler.add_job(
         _run_monthly_reports,
         trigger=CronTrigger(
@@ -54,6 +58,13 @@ def start_scheduler() -> None:
         trigger="interval",
         minutes=15,
         id="sla_checker",
+        replace_existing=True,
+    )
+    _scheduler.add_job(
+        _auto_close_resolved,
+        trigger="interval",
+        hours=6,
+        id="auto_close_resolved",
         replace_existing=True,
     )
     _scheduler.start()

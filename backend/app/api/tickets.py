@@ -3,7 +3,6 @@
 import html
 import math
 import os
-import shutil
 import uuid
 from datetime import date, datetime, timezone, timedelta
 
@@ -15,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.auth import current_user, require_admin
+from app.core.uploads import save_upload, validate_extension
 from app.db.database import get_db, AsyncSessionLocal
 from app.db.models import (
     CustomerContact, Ticket, TicketAttachment, TicketCategory,
@@ -313,7 +313,8 @@ async def create_ticket(
         if user.role == "customer" and user.email:
             from app.graph.ticket_mailer import send_ticket_created
             await send_ticket_created(
-                ticket_number, body.title, user.email, user.full_name or user.email
+                ticket_number, body.title, user.email, user.full_name or user.email,
+                ticket_id=ticket.id,
             )
     except Exception:
         pass
@@ -413,11 +414,17 @@ async def update_ticket(
 
     # Notiser — körs efter reload så relationer (assigned_to, customer, contacts) finns laddade.
     try:
-        from app.graph.ticket_mailer import send_ticket_assigned, send_ticket_status_changed
+        from app.graph.ticket_mailer import (
+            send_ticket_assigned, send_ticket_resolved, send_ticket_status_changed,
+        )
         if ticket.assigned_to_user_id != old_assignee_id and ticket.assigned_to:
             await send_ticket_assigned(ticket, ticket.assigned_to)
-        if body.status and body.status != old_status:
-            await send_ticket_status_changed(ticket, old_status, ticket.status)
+        if ticket.status != old_status:
+            # Löst-status får ett eget, kundvänligt mejl; övriga statusbyten den generiska notisen.
+            if ticket.status == "resolved":
+                await send_ticket_resolved(ticket)
+            else:
+                await send_ticket_status_changed(ticket, old_status, ticket.status)
     except Exception:
         pass
 
@@ -487,6 +494,13 @@ async def post_message(
             elif ticket.status == "new":
                 ticket.status = "open"
                 await _add_history(db, ticket.id, user.id, "status", "new", "open")
+            elif ticket.status in ("resolved", "closed"):
+                # Kund återkopplar på ett avslutat ärende → öppna igen
+                old = ticket.status
+                ticket.status = "in_progress"
+                ticket.resolved_at = None
+                ticket.closed_at = None
+                await _add_history(db, ticket.id, user.id, "status", old, "in_progress")
 
     await db.commit()
 
@@ -520,13 +534,12 @@ async def upload_attachment(
     _check_ticket_access(ticket, user)
     os.makedirs(ATTACHMENTS_DIR, exist_ok=True)
 
+    ext = validate_extension(file.filename)
     att_id = str(uuid.uuid4())
-    ext = os.path.splitext(file.filename or "")[1]
     stored = f"{att_id}{ext}"
     file_path = os.path.join(ATTACHMENTS_DIR, stored)
 
-    with open(file_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+    await save_upload(file, file_path)
 
     att = TicketAttachment(
         id=att_id,

@@ -91,6 +91,10 @@ async def update_user(
         raise HTTPException(404, "Användare hittades inte")
     if body.role is not None and body.role not in ("admin", "customer"):
         raise HTTPException(400, "Ogiltig roll — 'admin' eller 'customer'")
+    if body.email is not None and body.email != user.email:
+        clash = await db.scalar(select(User).where(User.email == body.email, User.id != user_id))
+        if clash:
+            raise HTTPException(400, "E-postadressen används redan")
     for field, value in body.model_dump(exclude_none=True).items():
         if field == "password":
             _validate_password(value)

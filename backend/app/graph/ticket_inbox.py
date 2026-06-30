@@ -98,7 +98,9 @@ async def _handle_message(db, raw_msg: dict, headers: dict) -> None:
     sender_obj = raw_msg.get("from", {}).get("emailAddress", {})
     sender_email = sender_obj.get("address", "").lower()
     sender_name  = sender_obj.get("name", sender_email)
-    body_html    = raw_msg.get("body", {}).get("content", "")
+    # Sanera inkommande HTML — den lagras och renderas i portalen (XSS-skydd).
+    from app.core.html_sanitize import sanitize_html
+    body_html    = sanitize_html(raw_msg.get("body", {}).get("content", ""))
 
     # Undvik att bearbeta samma mejl två gånger.
     # Kontrollera ProcessedEmail-tabellen — den överlever ärendeborttag till skillnad från TicketMessage.
@@ -211,7 +213,7 @@ async def _handle_message(db, raw_msg: dict, headers: dict) -> None:
     # Bekräftelsemejl
     try:
         from app.graph.ticket_mailer import send_ticket_created
-        await send_ticket_created(ticket_number, ticket.title, sender_email, sender_name)
+        await send_ticket_created(ticket_number, ticket.title, sender_email, sender_name, ticket_id=ticket.id)
     except Exception:
         pass
 
@@ -231,16 +233,19 @@ async def _add_email_reply(
         email_message_id=graph_id,
     ))
 
-    # Kund svarar → öppna igen
-    if ticket.status == "pending_customer":
+    # Kund svarar → öppna ärendet igen (även om det var löst/stängt).
+    if ticket.status in ("pending_customer", "resolved", "closed"):
+        old_status = ticket.status
+        ticket.status = "in_progress"
+        ticket.resolved_at = None
+        ticket.closed_at = None
         db.add(TicketHistory(
             id=str(uuid.uuid4()),
             ticket_id=ticket.id,
             field_changed="status",
-            old_value="pending_customer",
+            old_value=old_status,
             new_value="in_progress",
         ))
-        ticket.status = "in_progress"
 
     logger.info("E-postsvar på ärende %s från %s", ticket.ticket_number, sender_email)
 

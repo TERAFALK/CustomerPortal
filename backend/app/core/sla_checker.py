@@ -1,16 +1,20 @@
-"""Kontrollerar SLA-brott var 15:e minut och skickar varningar."""
+"""Kontrollerar SLA-brott och auto-stänger lösta ärenden — körs av schemaläggaren."""
 
 import logging
-from datetime import datetime, timezone
+import uuid
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 
 from app.db.database import AsyncSessionLocal
-from app.db.models import Ticket
+from app.db.models import Ticket, TicketHistory
 
 logger = logging.getLogger(__name__)
 
 OPEN_STATUSES = {"new", "open", "in_progress", "pending_customer"}
+
+# Lösta ärenden stängs automatiskt efter så här många dagar utan ny aktivitet.
+AUTO_CLOSE_DAYS = 7
 
 
 async def check_sla_breaches() -> None:
@@ -38,3 +42,31 @@ async def check_sla_breaches() -> None:
         if breached:
             await db.commit()
             logger.info("SLA-brott markerade: %d ärenden", len(breached))
+
+
+async def auto_close_resolved_tickets() -> None:
+    """Stänger lösta ärenden som legat orörda längre än AUTO_CLOSE_DAYS."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=AUTO_CLOSE_DAYS)
+    now = datetime.now(timezone.utc)
+    async with AsyncSessionLocal() as db:
+        tickets = (await db.scalars(
+            select(Ticket).where(
+                Ticket.status == "resolved",
+                Ticket.resolved_at.isnot(None),
+                Ticket.resolved_at <= cutoff,
+            )
+        )).all()
+        for ticket in tickets:
+            ticket.status = "closed"
+            ticket.closed_at = now
+            db.add(TicketHistory(
+                id=str(uuid.uuid4()),
+                ticket_id=ticket.id,
+                user_id=None,
+                field_changed="status",
+                old_value="resolved",
+                new_value="closed",
+            ))
+        if tickets:
+            await db.commit()
+            logger.info("Auto-stängde %d lösta ärenden", len(tickets))

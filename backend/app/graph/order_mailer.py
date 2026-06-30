@@ -1,7 +1,9 @@
-"""E-postnotifieringar för ordrar och projekt via Microsoft Graph."""
+"""E-postnotifieringar för ordrar och projekt — bygger på den centrala mailmotorn."""
 
 import logging
+
 from app.core import app_settings
+from app.graph.mailer import heading, info_card, paragraph, render_email, send_mail
 
 logger = logging.getLogger(__name__)
 
@@ -13,46 +15,6 @@ async def _get_setting(event_type: str):
         return await db.get(NotificationSetting, event_type)
 
 
-async def _send(to_email: str, to_name: str, subject: str, body_html: str) -> None:
-    from app.graph.sender import _get_token
-    import httpx
-
-    if not app_settings.get("graph_tenant_id"):
-        return
-
-    sender = app_settings.get("support_inbox") or "support@terafalk.com"
-    token = await _get_token()
-    url = f"https://graph.microsoft.com/v1.0/users/{sender}/sendMail"
-    payload = {
-        "message": {
-            "subject": subject,
-            "body": {"contentType": "HTML", "content": body_html},
-            "toRecipients": [{"emailAddress": {"address": to_email, "name": to_name}}],
-        },
-        "saveToSentItems": False,
-    }
-    async with httpx.AsyncClient(timeout=15) as client:
-        r = await client.post(url, json=payload, headers={"Authorization": f"Bearer {token}"})
-        r.raise_for_status()
-    logger.info("Ordermejl skickat till %s: %s", to_email, subject)
-
-
-def _base_html(content: str) -> str:
-    return f"""
-    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
-      <div style="background:#0047a3;padding:20px 24px;border-radius:8px 8px 0 0">
-        <span style="color:#fff;font-size:18px;font-weight:700">TERAFALK</span>
-      </div>
-      <div style="background:#f8f9fa;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e0e0e0;border-top:none">
-        {content}
-      </div>
-      <p style="font-size:11px;color:#888;text-align:center;margin-top:12px">
-        TERAFALK AB · support@terafalk.com
-      </p>
-    </div>
-    """
-
-
 async def _notify(event_type: str, order, subject: str, content: str) -> None:
     """Skicka notis baserat på konfiguration för händelsetypen."""
     cfg = await _get_setting(event_type)
@@ -60,70 +22,71 @@ async def _notify(event_type: str, order, subject: str, content: str) -> None:
         return
 
     recipients: list[tuple[str, str]] = []
+    seen = set()
 
-    # Skicka enbart till kontakter som är kopplade till ordern
+    def add(email, name):
+        if email and email not in seen:
+            seen.add(email)
+            recipients.append((email, name or email))
+
     if cfg.notify_customer:
         for oc in (order.contacts or []):
             c = oc.contact
             if c and c.email and c.is_active:
-                if c.email not in {r[0] for r in recipients}:
-                    recipients.append((c.email, c.name))
-
+                add(c.email, c.name)
     if cfg.notify_assigned and order.assigned_to and order.assigned_to.email:
-        if order.assigned_to.email not in {r[0] for r in recipients}:
-            recipients.append((order.assigned_to.email, order.assigned_to.full_name or order.assigned_to.email))
-
+        add(order.assigned_to.email, order.assigned_to.full_name or order.assigned_to.email)
     if cfg.notify_internal:
         internal = cfg.internal_email or app_settings.get("support_inbox") or "support@terafalk.com"
-        if internal not in {r[0] for r in recipients}:
-            recipients.append((internal, "TERAFALK Support"))
+        add(internal, "TERAFALK Support")
 
-    html = _base_html(content)
+    if not recipients:
+        return
+
+    body = render_email(content, preheader=subject)
     for email, name in recipients:
         try:
-            await _send(email, name, subject, html)
+            await send_mail(email, name, subject, body)
         except Exception as e:
             logger.warning("Kunde inte skicka ordermejl till %s: %s", email, e)
 
 
+def _type_label(order) -> str:
+    return "Projekt" if order.type == "project" else "Order"
+
+
 async def send_order_created(order) -> None:
-    type_label = "Projekt" if order.type == "project" else "Order"
-    content = f"""
-    <h2 style="margin:0 0 16px;font-size:16px">Ny {type_label.lower()} skapad</h2>
-    <div style="background:#fff;border:1px solid #e0e0e0;border-radius:6px;padding:16px;margin-bottom:16px">
-      <div style="font-size:13px;color:#555">Kund</div>
-      <div style="font-weight:700">{order.customer.name if order.customer else '—'}</div>
-      <div style="font-size:13px;color:#555;margin-top:10px">{type_label}</div>
-      <div style="font-weight:600">{order.title}</div>
-    </div>
-    """
-    await _notify("order_created", order, f"{type_label}: {order.title}", content)
+    label = _type_label(order)
+    content = (
+        heading(f"Ny {label.lower()} skapad")
+        + info_card([
+            ("Kund", order.customer.name if order.customer else "—"),
+            (label, order.title),
+        ])
+    )
+    await _notify("order_created", order, f"{label}: {order.title}", content)
 
 
 async def send_order_status_changed(order, old_status: str, new_status: str) -> None:
-    type_label = "Projekt" if order.type == "project" else "Order"
+    label = _type_label(order)
     status_map = {"active": "Aktiv", "completed": "Avslutad", "cancelled": "Makulerad"}
-    content = f"""
-    <h2 style="margin:0 0 16px;font-size:16px">{type_label}status ändrad</h2>
-    <div style="background:#fff;border:1px solid #e0e0e0;border-radius:6px;padding:16px">
-      <div style="font-weight:700;color:#0047a3">{order.title}</div>
-      <div style="font-size:13px;color:#555;margin-top:8px">
-        Status: <em>{status_map.get(old_status, old_status)}</em> → <strong>{status_map.get(new_status, new_status)}</strong>
-      </div>
-    </div>
-    """
-    await _notify("order_status_changed", order, f"{type_label} uppdaterad: {order.title}", content)
+    content = (
+        heading(f"{label}status ändrad")
+        + info_card([
+            (label, order.title),
+            ("Status", f"{status_map.get(old_status, old_status)} → {status_map.get(new_status, new_status)}"),
+        ])
+    )
+    await _notify("order_status_changed", order, f"{label} uppdaterad: {order.title}", content)
 
 
 async def send_order_phase_changed(order, old_phase: str, new_phase: str) -> None:
-    type_label = "Projekt" if order.type == "project" else "Order"
-    content = f"""
-    <h2 style="margin:0 0 16px;font-size:16px">{type_label}fas uppdaterad</h2>
-    <div style="background:#fff;border:1px solid #e0e0e0;border-radius:6px;padding:16px">
-      <div style="font-weight:700;color:#0047a3">{order.title}</div>
-      <div style="font-size:13px;color:#555;margin-top:8px">
-        Fas: <em>{old_phase or '—'}</em> → <strong>{new_phase or '—'}</strong>
-      </div>
-    </div>
-    """
-    await _notify("order_phase_changed", order, f"{type_label} fas ändrad: {order.title}", content)
+    label = _type_label(order)
+    content = (
+        heading(f"{label}fas uppdaterad")
+        + info_card([
+            (label, order.title),
+            ("Fas", f"{old_phase or '—'} → {new_phase or '—'}"),
+        ])
+    )
+    await _notify("order_phase_changed", order, f"{label} fas ändrad: {order.title}", content)

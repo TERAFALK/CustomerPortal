@@ -2,7 +2,6 @@
 
 import math
 import os
-import shutil
 import uuid
 from datetime import date
 
@@ -13,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.auth import current_user, require_admin
+from app.core.uploads import save_upload, validate_extension
 from app.db.database import get_db
 from app.db.models import CustomerContact, Order, OrderContact, OrderDocument, OrderPhaseTemplate, ProjectTask, TimeEntry, User
 
@@ -345,13 +345,12 @@ async def upload_document(
     order = await _get_order_or_404(order_id, db)
     os.makedirs(DOCUMENTS_DIR, exist_ok=True)
 
+    ext = validate_extension(file.filename)
     doc_id = str(uuid.uuid4())
-    ext = os.path.splitext(file.filename or "")[1]
     stored_name = f"{doc_id}{ext}"
     file_path = os.path.join(DOCUMENTS_DIR, stored_name)
 
-    with open(file_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+    await save_upload(file, file_path)
 
     doc = OrderDocument(
         id=doc_id,

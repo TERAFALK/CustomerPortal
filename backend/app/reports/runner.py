@@ -20,9 +20,10 @@ _report_semaphore = asyncio.Semaphore(3)  # max 3 rapporter parallellt
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from app.core import app_settings
 from app.db.database import AsyncSessionLocal
 from app.db.models import Customer, CustomerContact, Report
-from app.graph.sender import send_report_email
+from app.graph.mailer import heading, paragraph, pdf_attachment, render_email, send_mail
 from app.integrations.registry import INTEGRATIONS, get_client
 from app.reports.pdf_generator import generate_pdf
 
@@ -110,18 +111,12 @@ async def _generate_report(customer_id: str) -> None:
         db.add(report)
         await db.flush()
 
-        month_names = {
-            "01": "januari", "02": "februari", "03": "mars", "04": "april",
-            "05": "maj", "06": "juni", "07": "juli", "08": "augusti",
-            "09": "september", "10": "oktober", "11": "november", "12": "december",
-        }
         month_display = {
             "01": "Januari", "02": "Februari", "03": "Mars", "04": "April",
             "05": "Maj", "06": "Juni", "07": "Juli", "08": "Augusti",
             "09": "September", "10": "Oktober", "11": "November", "12": "December",
         }
         year, month_num = period.split("-")
-        month_sv = month_names.get(month_num, month_num)
         month_cap = month_display.get(month_num, month_num)
         included = ", ".join(INTEGRATIONS[k].display_name for k in sections.keys())
 
@@ -149,19 +144,23 @@ async def _generate_report(customer_id: str) -> None:
             return
 
         subject = f"IT-Rapport {month_cap} {year} — {customer.name}"
-        body_html = _email_body(customer.name, month_sv, year, included)
+        body_html = _email_body(customer.name, month_cap, year, included)
         filename = f"{customer.name} - {period}.pdf"
+
+        import base64
+        with open(pdf_path, "rb") as f:
+            pdf_b64 = base64.b64encode(f.read()).decode()
+        attachment = pdf_attachment(filename, pdf_b64)
+        report_sender = app_settings.get("graph_sender") or None
+
         any_sent = False
         last_error = None
         for to_email, to_name in recipients:
             try:
-                await send_report_email(
-                    to_email=to_email,
-                    to_name=to_name,
-                    subject=subject,
-                    body_html=body_html,
-                    pdf_path=pdf_path,
-                    pdf_filename=filename,
+                await send_mail(
+                    to_email, to_name, subject, body_html,
+                    sender=report_sender,
+                    attachments=[attachment],
                 )
                 any_sent = True
             except Exception as e:
@@ -179,21 +178,15 @@ async def _generate_report(customer_id: str) -> None:
         logger.info("Rapport klar för %s (%s) — sektioner: %s", customer.name, period, list(sections.keys()))
 
 
-_LOGO_B64 = "PHN2ZyBpZD0iTGF5ZXJfMSIgZGF0YS1uYW1lPSJMYXllciAxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2OTUuMzkgODQuMjQiPjxwYXRoIGQ9Ik0yMzYuMTgsNDU1LjU3djE1SDIwMS43NHY2OWgtMTV2LTY5SDE1Mi4zdi0xNVoiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0xNTIuMyAtNDU1LjQ1KSIvPjxwYXRoIGQ9Ik0yNjMuMyw0NzguMTN2Ny44aDU0djE1aC01NHYxNS44NGE3Ljc0LDcuNzQsMCwwLDAsNy42OCw3LjY4SDMzMi4zdjE1SDI3MWEyMi42MywyMi42MywwLDAsMS0yMi41Ni0yMi42N1Y0NzguMTNBMjIuNjQsMjIuNjQsMCwwLDEsMjcxLDQ1NS40NUgzMzIuM3YxNUgyNzFBNy43Myw3LjczLDAsMCwwLDI2My4zLDQ3OC4xM1oiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0xNTIuMyAtNDU1LjQ1KSIvPjxwYXRoIGQ9Ik00MTIuMSw1MjQuNjlsNy42OCwxNUg0MDNsLTcuNjgtMTUtOC0xNS43Mi0uMzYtLjcyYTE0Ljg3LDE0Ljg3LDAsMCwwLTEyLjcyLTcuMmgtMTV2MzguNjNoLTE1di04NGg1M2EyMi41MywyMi41MywwLDAsMSwyMi41NiwyMi41NiwyMi43NSwyMi43NSwwLDAsMS0xMy4yLDIwLjY0LDIwLDIwLDAsMCwxLTYuNDgsMS44Wm0tMTQuODgtMzguNjRhNyw3LDAsMCwwLDMuMTItLjcyLDcuNjIsNy42MiwwLDAsMCw0LjU2LTcsNy45Miw3LjkyLDAsMCwwLTIuMjgtNS41Miw3LjU2LDcuNTYsMCwwLDAtNS40LTIuMTZoLTM4djE1LjQ4WiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTE1Mi4zIC00NTUuNDUpIi8+PHBhdGggZD0iTTUxMi43OCw1MzkuNDRINDk2bC03LjY4LTE1LTE4LjM2LTM2LTE4LjM2LDM2LTcuNjgsMTVINDI3LjFsNy42OC0xNSwzNS4xNi02OSwzNS4xNiw2OVoiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0xNTIuMyAtNDU1LjQ1KSIvPjxwYXRoIGQ9Ik02MDQuMSw0NTUuNDV2MTVINTQyLjc4YTcuNzMsNy43MywwLDAsMC03LjY4LDcuNjh2Ny44aDU0djE1SDUzNXYzOC41MUg1MjAuMVY0NzguMTNhMjIuNjQsMjIuNjQsMCwwLDEsMjIuNTYtMjIuNjhaIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMTUyLjMgLTQ1NS40NSkiLz48cGF0aCBkPSJNNjc4LjM4LDUzOS40NGgtMTYuOGwtNy42OC0xNS0xOC4zNi0zNi0xOC4zNiwzNi03LjY4LDE1SDU5Mi43bDcuNjgtMTUsMzUuMTYtNjksMzUuMTYsNjlaIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMTUyLjMgLTQ1NS40NSkiLz48cGF0aCBkPSJNNzUxLjcsNTI0LjU3djE1SDcwOS4xYTI2LjA5LDI2LjA5LDAsMCwxLTExLjc2LTIuNzYsMjYuNTksMjYuNTksMCwwLDEtMTIuMTItMTIuMjMsMjYuMTIsMjYuMTIsMCwwLDEtMi43Ni0xMS43NlY0NTUuNTdoMTV2NTguNjhhMTIsMTIsMCwwLDAsMTAuMiwxMC4yWiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTE1Mi4zIC00NTUuNDUpIi8+PHBhdGggZD0iTTgxMSw0ODkuMTdsMzYuMzUsNTAuMjdIODI4Ljg1bC0yOS00MC4wNy0yMS4yNCwxOS4zMnYyMC43NWgtMTV2LTg0aDE1djQzbDEyLjM2LTExLjI4LDExLjE2LTEwLjIsMjMuMzktMjEuNDhoMjIuMloiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0xNTIuMyAtNDU1LjQ1KSIvPjwvc3ZnPg=="
-
-
 def _email_body(customer_name: str, month: str, year: str, included_integrations: str) -> str:
-    return f"""
-    <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#141414">
-      <div style="background:#fff;padding:22px 28px;border:1px solid #e0e9f5;border-radius:8px 8px 0 0">
-        <img src="data:image/svg+xml;base64,{_LOGO_B64}" width="130" height="16" alt="TERAFALK" style="display:block">
-      </div>
-      <div style="background:#fff;padding:28px;border:1px solid #e0e9f5;border-top:none;border-radius:0 0 8px 8px">
-        <p style="margin:0 0 16px">Hej {customer_name},</p>
-        <p style="margin:0 0 16px">Bifogat finns er IT-rapport för <strong>{month} {year}</strong> från TERAFALK.</p>
-        <p style="margin:0 0 16px">Rapporten omfattar: <strong>{included_integrations}</strong></p>
-        <p style="margin:0 0 24px">Har ni frågor är ni välkomna att kontakta oss på support@terafalk.com.</p>
-        <p style="margin:0;font-size:12px;color:#666">TERAFALK AB<br>Detta är ett automatiskt utskick — svara inte på detta e-postmeddelande.</p>
-      </div>
-    </div>
-    """
+    content = (
+        heading(f"IT-rapport {month} {year}")
+        + paragraph(f"Hej {customer_name},")
+        + paragraph(f"Bifogat finns er IT-rapport för <strong>{month} {year}</strong> från TERAFALK.")
+        + paragraph(f"Rapporten omfattar: <strong>{included_integrations}</strong>")
+        + paragraph("Har ni frågor är ni välkomna att kontakta oss på support@terafalk.com.")
+    )
+    return render_email(
+        content,
+        footer_note="TERAFALK AB · Detta är ett automatiskt utskick — svara inte på detta meddelande.",
+    )
