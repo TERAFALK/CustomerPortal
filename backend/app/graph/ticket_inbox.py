@@ -125,32 +125,26 @@ async def _handle_message(db, raw_msg: dict, headers: dict) -> None:
             return
 
     # Nytt ärende — matcha kund i prioritetsordning:
-    # 1. Exakt e-postmatch på Customer.contact_email
-    # 2. Exakt e-postmatch på CustomerContact.email
-    # 3. Domänmatchning (@foretag.se → kund vars contact_email har samma domän)
-    # 4. Okänd kund (catch-all)
+    # 1. Exakt e-postmatch på CustomerContact.email
+    # 2. Domänmatchning (@foretag.se → kund med kontakt på samma domän)
+    # 3. Okänd kund (catch-all)
     from app.db.models import CustomerContact, TicketContact
     matched_contact: "CustomerContact | None" = None
 
-    customer = await db.scalar(
-        select(Customer).where(Customer.contact_email.ilike(sender_email), Customer.is_active == True)
-    )
-
-    if not customer:
-        matched_contact = await db.scalar(
-            select(CustomerContact).where(
-                CustomerContact.email.ilike(sender_email),
-                CustomerContact.is_active == True,
-            )
+    matched_contact = await db.scalar(
+        select(CustomerContact).where(
+            CustomerContact.email.ilike(sender_email),
+            CustomerContact.is_active == True,
         )
-        if matched_contact:
-            customer = await db.get(Customer, matched_contact.customer_id)
+    )
+    customer = None
+    if matched_contact:
+        customer = await db.get(Customer, matched_contact.customer_id)
 
     if not customer:
-        # Domänmatchning
+        # Domänmatchning mot kontaktpersoner med samma domän
         domain = sender_email.split("@")[-1] if "@" in sender_email else ""
         if domain:
-            # Matcha mot kontaktpersoner med samma domän
             dom_contact = await db.scalar(
                 select(CustomerContact).where(
                     CustomerContact.email.ilike(f"%@{domain}"),
@@ -160,15 +154,6 @@ async def _handle_message(db, raw_msg: dict, headers: dict) -> None:
             if dom_contact:
                 customer = await db.get(Customer, dom_contact.customer_id)
                 matched_contact = dom_contact
-
-        if not customer and domain:
-            # Matcha mot kundens primära kontaktmail
-            customer = await db.scalar(
-                select(Customer).where(
-                    Customer.contact_email.ilike(f"%@{domain}"),
-                    Customer.is_active == True,
-                ).order_by(Customer.created_at)
-            )
 
     if not customer:
         customer = await _get_or_create_extern_customer(db)
@@ -301,7 +286,6 @@ async def _get_or_create_extern_customer(db) -> "Customer":
             id=str(uuid.uuid4()),
             name="Okänd kund",
             contact_name="Okänd avsändare",
-            contact_email="support@terafalk.com",
             city="",
             is_active=True,
         )

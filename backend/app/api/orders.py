@@ -150,7 +150,15 @@ async def create_order(
     )
     db.add(order)
     await db.commit()
-    return await _get_order_or_404(order.id, db)
+    order = await _get_order_or_404(order.id, db)
+
+    try:
+        from app.graph.order_mailer import send_order_created
+        await send_order_created(order)
+    except Exception:
+        pass
+
+    return order
 
 
 # ── Detalj / Uppdatera / Ta bort ──────────────────────────────────────────────

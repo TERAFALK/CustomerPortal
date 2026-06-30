@@ -40,6 +40,10 @@ async def init_db() -> None:
             "ALTER TABLE customer_contacts ADD COLUMN IF NOT EXISTS receives_reports BOOLEAN NOT NULL DEFAULT FALSE",
             "ALTER TABLE customer_contacts ADD COLUMN IF NOT EXISTS has_portal_access BOOLEAN NOT NULL DEFAULT FALSE",
             "ALTER TABLE customer_contacts ADD COLUMN IF NOT EXISTS user_id VARCHAR REFERENCES users(id)",
+            # Den ursprungliga kund-mailposten är ersatt av customer_contacts — ta bort kolumnen helt
+            "ALTER TABLE customers DROP COLUMN IF EXISTS contact_email",
+            # Tekniker-rollen är borttagen — befintliga tekniker blir administratörer
+            "UPDATE users SET role = 'admin' WHERE role = 'technician'",
         ]:
             await conn.execute(text(stmt))
     await _seed_phase_templates()

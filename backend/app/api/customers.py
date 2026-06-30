@@ -24,14 +24,12 @@ router = APIRouter()
 class CustomerCreate(BaseModel):
     name: str
     contact_name: str = ""
-    contact_email: str = ""
     city: str = ""
 
 
 class CustomerUpdate(BaseModel):
     name: str | None = None
     contact_name: str | None = None
-    contact_email: str | None = None
     city: str | None = None
 
 
@@ -91,7 +89,6 @@ async def list_customers(
             "id": c.id,
             "name": c.name,
             "contact_name": c.contact_name,
-            "contact_email": c.contact_email,
             "city": c.city,
             "integrations_configured": list(configured),
             "integrations_verified": list(verified),
@@ -154,7 +151,6 @@ async def get_customer(
         "id": c.id,
         "name": c.name,
         "contact_name": c.contact_name,
-        "contact_email": c.contact_email,
         "city": c.city,
         "integrations": integrations_status,
         "recent_reports": [

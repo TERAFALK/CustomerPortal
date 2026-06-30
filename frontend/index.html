@@ -765,7 +765,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
       <div class="ph"><div><div class="ph-title">Kunder</div><div class="ph-sub" id="customers-sub">Laddar...</div></div><button class="btn btn-p btn-sm" onclick="nav('add-customer')"><i class="ti ti-plus"></i> Ny kund</button></div>
       <div class="card">
         <table class="tbl hov">
-          <thead><tr><th>Kund</th><th>Ort</th><th>E-post</th><th>Integrationer</th><th>Status</th></tr></thead>
+          <thead><tr><th>Kund</th><th>Ort</th><th>Integrationer</th><th>Status</th></tr></thead>
           <tbody id="customers-tbody">
             <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">Laddar kunder...</td></tr>
           </tbody>
@@ -1056,7 +1056,6 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
             <div class="fr" style="margin:0"><label class="fl">Roll</label>
               <select class="fi" id="cu-role" onchange="toggleCuCustomer()">
                 <option value="admin">Admin</option>
-                <option value="technician">Tekniker</option>
                 <option value="customer" selected>Kundanvändare</option>
               </select>
             </div>
@@ -1085,7 +1084,6 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
             <div class="fr" style="margin:0"><label class="fl">Roll</label>
               <select class="fi" id="eu-role" onchange="toggleEuCustomer()">
                 <option value="admin">Admin</option>
-                <option value="technician">Tekniker</option>
                 <option value="customer">Kundanvändare</option>
               </select>
             </div>
@@ -1203,7 +1201,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
           <!-- Användare -->
           <div id="stab-users" style="display:none">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-              <div class="fsec" style="margin:0">Administratörer &amp; tekniker</div>
+              <div class="fsec" style="margin:0">Administratörer</div>
               <button class="btn btn-p btn-sm" onclick="openUserModal(null)"><i class="ti ti-plus"></i> Ny användare</button>
             </div>
             <div id="s-users-list"></div>
@@ -1454,7 +1452,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
       <!-- Flik: Tilldelning & kontakter -->
       <div class="cd-tab-pane" id="od-pane-od-people">
         <div class="card">
-          <div class="ch"><span class="cht">Tilldelad tekniker</span></div>
+          <div class="ch"><span class="cht">Tilldelad</span></div>
           <div class="cb" id="od-assigned-wrap">
             <select class="fi" id="od-assigned-sel" style="max-width:320px" onchange="saveOrderAssignee(this.value)">
               <option value="">— Ingen —</option>
@@ -1527,7 +1525,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
 
 <!-- ══ MODALER ══ -->
 
-<!-- Modal: Användare (skapa/redigera admin & tekniker) -->
+<!-- Modal: Användare (skapa/redigera administratörer) -->
 <div id="modal-user" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:500;align-items:center;justify-content:center" onclick="if(event.target===this)closeModal('modal-user')">
   <div style="background:#fff;border-radius:12px;padding:28px;width:480px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,0.2)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
@@ -1543,7 +1541,6 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
     <div class="fr" style="margin:0"><label class="fl">Roll</label>
       <select class="fi" id="mu-role">
         <option value="admin">Admin</option>
-        <option value="technician">Tekniker</option>
       </select>
     </div>
     <div class="fr" style="margin:0" id="mu-active-row" style="display:none">
@@ -1827,7 +1824,7 @@ async function showApp() {
 function applyRoleUI() {
   const role = currentUser?.role;
   const isAdmin = role === 'admin';
-  const isStaff = role === 'admin' || role === 'technician';
+  const isStaff = role === 'admin';
   const isCustomer = role === 'customer';
 
   // Dölj admin-only nav-poster
@@ -1838,7 +1835,7 @@ function applyRoleUI() {
   // Kunder ser inte kundlistan
   const navCustomers = document.getElementById('nav-customers');
   if (navCustomers) navCustomers.style.display = isStaff ? '' : 'none';
-  // Reports-länken i sidebar bara för admin/tekniker (kunder når rapporter via fliken)
+  // Reports-länken i sidebar bara för admin (kunder når rapporter via fliken)
   const navReports = document.getElementById('nav-reports');
   if (navReports) navReports.style.display = isStaff ? '' : 'none';
   // Dölj admin-knappar för skapande av ordrar
@@ -1854,7 +1851,7 @@ function applyRoleUI() {
 
   // Uppdatera sidofältets användarinfo
   const name = currentUser?.full_name || currentUser?.email || 'Användare';
-  const roleLabel = isCustomer ? 'Kundanvändare · Logga ut' : isAdmin ? 'Admin · Logga ut' : 'Tekniker · Logga ut';
+  const roleLabel = isCustomer ? 'Kundanvändare · Logga ut' : 'Admin · Logga ut';
   const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'AN';
   const sbName = document.getElementById('sb-name');
   const sbRole = document.getElementById('sb-role');
@@ -2017,7 +2014,7 @@ async function loadDashboard() {
     customers.forEach(c => { _customerIssueMap[c.id] = c; });
 
     customersCache = customers.map(c => ({
-      id: c.id, name: c.name, city: c.city, contact_email: c.contact_email,
+      id: c.id, name: c.name, city: c.city,
       contact_name: c.contact_name,
       integrations_verified: c.integrations_verified,
       integrations_configured: c.integrations_verified,
@@ -2126,7 +2123,6 @@ async function loadCustomersList() {
         <tr onclick="openCustomer('${c.id}')">
           <td data-label="Kund"><div class="dn">${escapeHtml(c.name)}</div><div class="ds">${escapeHtml(c.contact_name || '')}</div></td>
           <td data-label="Ort">${escapeHtml(c.city || '—')}</td>
-          <td data-label="E-post" style="color:var(--muted);font-size:12px">${escapeHtml(c.contact_email || '—')}</td>
           <td data-label="Integrationer"><div class="int-chips">${chips}</div></td>
           <td data-label="Status">${statusBadge}</td>
         </tr>`;
@@ -2168,7 +2164,7 @@ async function submitNewCustomer() {
   try {
     const created = await api('/api/customers', {
       method: 'POST',
-      body: JSON.stringify({ name, contact_name, city, contact_email: '' })
+      body: JSON.stringify({ name, contact_name, city })
     });
     t(`${name} skapad — lägg till kontakter och integrationer under kundens sida`);
     currentCustomerId = created.id;
@@ -2271,7 +2267,7 @@ async function loadCustomerDetail(customerId) {
     if (_navGen !== gen) return;
     document.getElementById('cd-name').textContent = customer.name;
     document.getElementById('cd-eyebrow').textContent = `Kund · ${customer.city || '—'}`;
-    document.getElementById('cd-sub').textContent = customer.contact_email + (customer.contact_name ? ' · ' + customer.contact_name : '');
+    document.getElementById('cd-sub').textContent = [customer.contact_name, customer.city].filter(Boolean).join(' · ') || '—';
 
     // Integrationspillar — klickbara tabs för verifierade integrationer
     const verifiedKeys = customer.integrations.filter(i => i.verified).map(i => i.key);
@@ -3596,7 +3592,11 @@ async function loadOrderDetail(orderId) {
     if (isAdmin) {
       const isCancelled = order.status === 'cancelled';
       document.getElementById('od-cancel-btn').style.display = isCancelled ? 'none' : '';
-      document.getElementById('od-delete-btn').style.display = isCancelled ? '' : 'none';
+      // "Ta bort" syns alltid för admin. Om ordern inte är makulerad guidar deleteCurrentOrder()
+      // användaren att makulera först (tvåstegsflödet behålls).
+      const delBtn = document.getElementById('od-delete-btn');
+      delBtn.style.display = '';
+      delBtn.title = isCancelled ? 'Ta bort permanent' : 'Makulera ordern först för att kunna ta bort den permanent';
     }
     document.getElementById('od-time-form-card').style.display = isAdmin ? '' : 'none';
     // Kund ser bara debiterbar tid (inte faktisk tid)
@@ -3650,7 +3650,7 @@ async function loadOrderPeople(orderId) {
 
     // Assignee dropdown
     const sel = document.getElementById('od-assigned-sel');
-    const staff = users.filter(u => u.role === 'admin' || u.role === 'technician');
+    const staff = users.filter(u => u.role === 'admin');
     sel.innerHTML = '<option value="">— Ingen —</option>' +
       staff.map(u => `<option value="${u.id}" ${order.assigned_to && order.assigned_to.id === u.id ? 'selected' : ''}>${escapeHtml(u.full_name || u.email)}</option>`).join('');
 
@@ -4273,7 +4273,7 @@ function renderNotifSettings() {
         <th>Händelse</th>
         <th style="text-align:center;width:80px">Aktiverad</th>
         <th style="text-align:center;width:90px">→ Kund</th>
-        <th style="text-align:center;width:90px">→ Tekniker</th>
+        <th style="text-align:center;width:90px">→ Tilldelad</th>
         <th style="text-align:center;width:90px">→ Internt</th>
         <th style="width:200px">Intern e-post</th>
       </tr></thead>
@@ -4319,14 +4319,14 @@ async function loadSettingsUsers() {
   el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Laddar...</div>';
   try {
     const users = await api('/api/users');
-    const staff = users.filter(u => u.role === 'admin' || u.role === 'technician');
+    const staff = users.filter(u => u.role === 'admin');
     if (!staff.length) {
-      el.innerHTML = '<div style="color:var(--muted);font-size:13px">Inga admins eller tekniker skapade ännu.</div>';
+      el.innerHTML = '<div style="color:var(--muted);font-size:13px">Inga administratörer skapade ännu.</div>';
       return;
     }
     el.innerHTML = `<table class="tbl"><thead><tr><th>Namn</th><th>E-post</th><th>Roll</th><th>Status</th><th></th></tr></thead><tbody>` +
       staff.map(u => {
-        const roleBadge = u.role === 'admin' ? `<span class="b b-info">Admin</span>` : `<span class="b b-muted">Tekniker</span>`;
+        const roleBadge = `<span class="b b-info">Admin</span>`;
         const statusBadge = u.is_active ? `<span class="b b-ok">Aktiv</span>` : `<span class="b b-err">Inaktiv</span>`;
         const isSelf = currentUser && currentUser.id === u.id;
         return `<tr>
@@ -4345,7 +4345,7 @@ async function loadSettingsUsers() {
   }
 }
 
-// ── User modal (create/edit admin & technician) ───────────────────────────
+// ── User modal (create/edit administrators) ───────────────────────────
 
 async function openUserModal(userId) {
   document.getElementById('mu-error').style.display = 'none';
@@ -4372,7 +4372,7 @@ async function openUserModal(userId) {
     document.getElementById('mu-active-row').style.display = 'none';
     document.getElementById('mu-name').value = '';
     document.getElementById('mu-email').value = '';
-    document.getElementById('mu-role').value = 'technician';
+    document.getElementById('mu-role').value = 'admin';
   }
   openModal('modal-user');
 }
@@ -4572,7 +4572,7 @@ function renderTicketsTable() {
         const isContact = (tk.contacts || []).some(c => c.email === myEmail);
         if (!isContact) return false;
       } else {
-        // Admin/tekniker: visa ärenden tilldelade till mig
+        // Admin: visa ärenden tilldelade till mig
         if (tk.assigned_to?.id !== myId) return false;
       }
     }
@@ -4644,7 +4644,7 @@ async function _ensureTicketMeta() {
   if (!_ticketStaff.length) {
     try {
       const users = await api('/api/users');
-      _ticketStaff = users.filter(u => u.role === 'admin' || u.role === 'technician');
+      _ticketStaff = users.filter(u => u.role === 'admin');
     } catch(e) {}
   }
 }
@@ -4659,7 +4659,7 @@ function switchTdTab(tab) {
 
 function renderTicketDetail() {
   const tk = _currentTicket;
-  const isStaff = currentUser?.role === 'admin' || currentUser?.role === 'technician';
+  const isStaff = currentUser?.role === 'admin';
 
   // Topprad
   document.getElementById('td-number').textContent = tk.ticket_number;
@@ -4768,7 +4768,7 @@ function renderTicketDetail() {
   let msgsHtml = '';
   if (msgs.length) {
     msgsHtml = [...msgs].reverse().map(m => {
-      const isStaffMsg = m.author_role === 'admin' || m.author_role === 'technician';
+      const isStaffMsg = m.author_role === 'admin';
       const cls = m.is_internal ? 'internal' : isStaffMsg ? 'from-staff' : 'from-customer';
       const tag = m.is_internal ? ' <span style="font-size:10px;background:#f59e0b;color:#fff;border-radius:3px;padding:1px 5px">INTERN</span>' : '';
       const atts = (m.attachments||[]).map(a =>
@@ -4886,7 +4886,7 @@ function renderTicketTimeEntries() {
   const entries = tk.time_entries || [];
   const listEl = document.getElementById('td-time-entries-list');
   if (!listEl) return;
-  const isStaff = currentUser?.role === 'admin' || currentUser?.role === 'technician';
+  const isStaff = currentUser?.role === 'admin';
   let totalActual = 0, totalBilled = 0;
   if (!entries.length) {
     listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:4px 0">Inga tidsposter.</div>';

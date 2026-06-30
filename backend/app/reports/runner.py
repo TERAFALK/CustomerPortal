@@ -125,7 +125,7 @@ async def _generate_report(customer_id: str) -> None:
         month_cap = month_display.get(month_num, month_num)
         included = ", ".join(INTEGRATIONS[k].display_name for k in sections.keys())
 
-        # Hämta alla rapportmottagare för kunden
+        # Hämta alla rapportmottagare för kunden — kontakter markerade som rapportmottagare
         report_contacts = (await db.scalars(
             select(CustomerContact)
             .where(
@@ -135,11 +135,18 @@ async def _generate_report(customer_id: str) -> None:
             )
         )).all()
 
-        # Fallback till customer.contact_email om inga kontakter är markerade
-        if report_contacts:
-            recipients = [(c.email, c.name) for c in report_contacts]
-        else:
-            recipients = [(customer.contact_email, customer.contact_name or customer.name)]
+        recipients = [(c.email, c.name) for c in report_contacts]
+
+        # Ingen markerad mottagare → spara rapporten men skicka inget (kräver inte längre någon kund-mailpost)
+        if not recipients:
+            logger.warning(
+                "Ingen rapportmottagare markerad för %s — rapporten genereras men skickas inte",
+                customer.name,
+            )
+            report.send_status = "error"
+            report.error_message = "Ingen kontakt markerad som rapportmottagare"
+            await db.commit()
+            return
 
         subject = f"IT-Rapport {month_cap} {year} — {customer.name}"
         body_html = _email_body(customer.name, month_sv, year, included)

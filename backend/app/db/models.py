@@ -36,7 +36,6 @@ class Customer(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
     name: Mapped[str] = mapped_column(String, nullable=False)
     contact_name: Mapped[str] = mapped_column(String, default="")
-    contact_email: Mapped[str] = mapped_column(String, nullable=False)
     city: Mapped[str] = mapped_column(String, default="")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

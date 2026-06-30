@@ -108,15 +108,13 @@ async def send_ticket_reply(ticket, replier, message_body: str, is_internal: boo
     t: Ticket = ticket
     prio_label = PRIORITY_LABELS.get(t.priority, t.priority)
 
-    if replier.role in ("admin", "technician"):
+    if replier.role == "admin":
         cfg = await _get_setting("ticket_reply_staff")
         if cfg and not cfg.enabled:
             return
 
         recipients: list[tuple[str, str]] = []
         if (not cfg or cfg.notify_customer):
-            if t.customer and t.customer.contact_email:
-                recipients.append((t.customer.contact_email, t.customer.name))
             for tc in (t.contacts or []):
                 c = tc.contact
                 if c and c.email and c.is_active and c.email not in {r[0] for r in recipients}:
@@ -196,6 +194,50 @@ async def send_ticket_assigned(ticket, assigned_user) -> None:
     """
     for email, name in recipients:
         await _send(email, name, f"[{t.ticket_number}] Tilldelat: {t.title}", _base_html(content))
+
+
+STATUS_LABELS = {
+    "new": "Ny", "open": "Öppen", "in_progress": "Pågår",
+    "pending_customer": "Inväntar kund", "resolved": "Löst",
+    "closed": "Stängd", "cancelled": "Avbruten",
+}
+
+
+async def send_ticket_status_changed(ticket, old_status: str, new_status: str) -> None:
+    """Notis när ett ärendes status ändras."""
+    cfg = await _get_setting("ticket_status_changed")
+    if not cfg or not cfg.enabled:
+        return
+    t = ticket
+
+    recipients: list[tuple[str, str]] = []
+    if cfg.notify_customer:
+        for tc in (t.contacts or []):
+            c = tc.contact
+            if c and c.email and c.is_active and c.email not in {r[0] for r in recipients}:
+                recipients.append((c.email, c.name))
+    if cfg.notify_assigned and t.assigned_to and t.assigned_to.email:
+        if t.assigned_to.email not in {r[0] for r in recipients}:
+            recipients.append((t.assigned_to.email, t.assigned_to.full_name or t.assigned_to.email))
+    if cfg.notify_internal:
+        internal = cfg.internal_email or app_settings.get("support_inbox") or "support@terafalk.com"
+        if internal not in {r[0] for r in recipients}:
+            recipients.append((internal, "TERAFALK Support"))
+    if not recipients:
+        return
+
+    content = f"""
+    <h2 style="margin:0 0 16px;font-size:16px">Status uppdaterad på ditt ärende</h2>
+    <div style="background:#fff;border:1px solid #e0e0e0;border-radius:6px;padding:16px">
+      <div style="font-weight:700;color:#0047a3">{t.ticket_number} — {t.title}</div>
+      <div style="font-size:13px;color:#555;margin-top:8px">
+        Status: <em>{STATUS_LABELS.get(old_status, old_status)}</em> → <strong>{STATUS_LABELS.get(new_status, new_status)}</strong>
+      </div>
+    </div>
+    """
+    subject = f"[{t.ticket_number}] Status: {STATUS_LABELS.get(new_status, new_status)}"
+    for email, name in recipients:
+        await _send(email, name, subject, _base_html(content))
 
 
 async def send_sla_breach_warning(ticket) -> None:

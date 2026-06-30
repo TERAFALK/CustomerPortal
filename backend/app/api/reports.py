@@ -89,12 +89,15 @@ async def clear_report_history(
 async def preview_report(
     customer_id: str,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(current_user),
+    user: User = Depends(current_user),
 ):
     """Genererar och returnerar rapport-HTML för förhandsgranskning (ingen PDF, ingen DB-post)."""
     from app.core.time_utils import now_stockholm
     from app.integrations.registry import get_client
     from app.reports.pdf_generator import generate_preview_html
+
+    if user.role == "customer" and user.customer_id != customer_id:
+        raise HTTPException(403, "Åtkomst nekad")
 
     customer = await db.scalar(
         select(Customer)
@@ -133,11 +136,13 @@ async def preview_report(
 async def download_pdf(
     report_id: str,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(current_user),
+    user: User = Depends(current_user),
 ):
     report = await db.get(Report, report_id)
     if not report or not report.pdf_path:
         raise HTTPException(404, "Rapport-PDF hittades inte")
+    if user.role == "customer" and user.customer_id != report.customer_id:
+        raise HTTPException(403, "Åtkomst nekad")
     safe_root = os.path.realpath(settings.REPORTS_OUTPUT_DIR)
     pdf_abs = os.path.realpath(report.pdf_path)
     if not pdf_abs.startswith(safe_root + os.sep) and pdf_abs != safe_root:

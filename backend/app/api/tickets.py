@@ -17,7 +17,7 @@ from sqlalchemy.orm import selectinload
 from app.api.auth import current_user, require_admin
 from app.db.database import get_db, AsyncSessionLocal
 from app.db.models import (
-    Customer, CustomerContact, Ticket, TicketAttachment, TicketCategory,
+    CustomerContact, Ticket, TicketAttachment, TicketCategory,
     TicketContact, TicketHistory, TicketMessage, TicketSlaPolicy,
     TicketTimeEntry, User,
 )
@@ -34,7 +34,7 @@ VALID_PRIOS     = {"critical", "high", "medium", "low"}
 # ── Behörighet ─────────────────────────────────────────────────────────────────
 
 def _is_staff(user: User) -> bool:
-    return user.role in ("admin", "technician")
+    return user.role == "admin"
 
 
 def _check_ticket_access(ticket: Ticket, user: User) -> None:
@@ -307,12 +307,14 @@ async def create_ticket(
     await _add_history(db, ticket.id, user.id, "status", None, "new")
     await db.commit()
 
-    # Bekräftelsemejl till kunden
+    # Bekräftelsemejl — skickas till den kundanvändare som skapade ärendet.
+    # (Personal/admin som skapar åt en kund får inget autosvar.)
     try:
-        from app.graph.ticket_mailer import send_ticket_created
-        customer = await db.get(Customer, body.customer_id)
-        if customer and customer.contact_email:
-            await send_ticket_created(ticket_number, body.title, customer.contact_email, customer.name)
+        if user.role == "customer" and user.email:
+            from app.graph.ticket_mailer import send_ticket_created
+            await send_ticket_created(
+                ticket_number, body.title, user.email, user.full_name or user.email
+            )
     except Exception:
         pass
 
@@ -357,12 +359,17 @@ async def update_ticket(
     _check_ticket_access(ticket, user)
 
     if not _is_staff(user):
-        # Kund får bara stänga (resolved) sitt eget ärende
-        allowed = body.status in ("resolved",) if body.status else True
-        if not allowed or any([body.priority, body.type, body.category_id, body.assigned_to_user_id]):
+        # Kund får enbart markera sitt eget ärende som löst — inga andra fält.
+        other_fields = any([
+            body.priority, body.type, body.category_id, body.subcategory_id,
+            body.assigned_to_user_id, body.resolution, body.title,
+        ])
+        if other_fields or (body.status is not None and body.status != "resolved"):
             raise HTTPException(status_code=403, detail="Åtkomst nekad")
 
     now = datetime.now(timezone.utc)
+    old_status = ticket.status
+    old_assignee_id = ticket.assigned_to_user_id
 
     if body.status and body.status != ticket.status:
         if body.status not in VALID_STATUSES:
@@ -403,6 +410,17 @@ async def update_ticket(
 
     await db.commit()
     ticket = await _get_ticket_or_404(ticket_id, db)
+
+    # Notiser — körs efter reload så relationer (assigned_to, customer, contacts) finns laddade.
+    try:
+        from app.graph.ticket_mailer import send_ticket_assigned, send_ticket_status_changed
+        if ticket.assigned_to_user_id != old_assignee_id and ticket.assigned_to:
+            await send_ticket_assigned(ticket, ticket.assigned_to)
+        if body.status and body.status != old_status:
+            await send_ticket_status_changed(ticket, old_status, ticket.status)
+    except Exception:
+        pass
+
     return _ticket_dict(ticket, include_internals=_is_staff(user))
 
 

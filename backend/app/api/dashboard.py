@@ -98,7 +98,7 @@ async def dashboard_summary(
             "id": c.id,
             "name": c.name,
             "city": c.city,
-            "contact_email": c.contact_email,
+            "contact_name": c.contact_name,
             "integrations_verified": [cr.integration_type for cr in c.credentials if cr.is_verified],
         }
 

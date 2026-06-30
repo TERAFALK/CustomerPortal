@@ -89,6 +89,8 @@ async def update_user(
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(404, "Användare hittades inte")
+    if body.role is not None and body.role not in ("admin", "customer"):
+        raise HTTPException(400, "Ogiltig roll — 'admin' eller 'customer'")
     for field, value in body.model_dump(exclude_none=True).items():
         if field == "password":
             _validate_password(value)
