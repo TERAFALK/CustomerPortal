@@ -9,7 +9,7 @@ from datetime import date, datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import select, func as sqlfunc
+from sqlalchemy import select, update, func as sqlfunc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -106,6 +106,8 @@ async def _get_ticket_or_404(ticket_id: str, db: AsyncSession) -> Ticket:
             selectinload(Ticket.history),
             selectinload(Ticket.contacts).selectinload(TicketContact.contact),
             selectinload(Ticket.time_entries).selectinload(TicketTimeEntry.user),
+            selectinload(Ticket.parent),
+            selectinload(Ticket.merged_children),
         )
         .where(Ticket.id == ticket_id)
     )
@@ -180,6 +182,12 @@ def _ticket_dict(ticket: Ticket, include_internals: bool = True) -> dict:
         "closed_at": ticket.closed_at.isoformat() if ticket.closed_at else None,
         "created_at": ticket.created_at.isoformat(),
         "updated_at": ticket.updated_at.isoformat() if ticket.updated_at else None,
+        "parent_ticket_id": ticket.parent_ticket_id,
+        "parent_ticket_number": ticket.parent.ticket_number if ticket.parent else None,
+        "merged_children": [
+            {"id": c.id, "ticket_number": c.ticket_number, "title": c.title}
+            for c in (ticket.merged_children or [])
+        ],
         "messages": messages,
         "history": history,
         "contacts": [
@@ -231,6 +239,8 @@ async def list_tickets(
         selectinload(Ticket.history),
         selectinload(Ticket.contacts).selectinload(TicketContact.contact),
         selectinload(Ticket.time_entries).selectinload(TicketTimeEntry.user),
+        selectinload(Ticket.parent),
+        selectinload(Ticket.merged_children),
     )
     if not _is_staff(user):
         q = q.where(Ticket.customer_id == user.customer_id)
@@ -372,6 +382,10 @@ async def update_ticket(
     old_status = ticket.status
     old_assignee_id = ticket.assigned_to_user_id
 
+    # Stängda ärenden är slutgiltiga och kan inte återöppnas (av någon).
+    if ticket.status == "closed" and body.status and body.status != "closed":
+        raise HTTPException(status_code=409, detail="Stängda ärenden kan inte återöppnas")
+
     if body.status and body.status != ticket.status:
         if body.status not in VALID_STATUSES:
             raise HTTPException(status_code=400, detail="Ogiltig status")
@@ -442,6 +456,98 @@ async def delete_ticket(
     await db.commit()
 
 
+# ── Sammanslagning ───────────────────────────────────────────────────────────────
+
+class MergeBody(BaseModel):
+    target_ticket_id: str
+
+
+@router.post("/{ticket_id}/merge")
+async def merge_ticket(
+    ticket_id: str,
+    body: MergeBody,
+    user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Slår ihop ett ärende (källa) in i ett annat (mål) under samma kund.
+
+    All data (meddelanden, bilagor, tid, kontakter) flyttas till målet. Källan
+    stängs och kopplas som child till målet — den kan inte längre återöppnas.
+    """
+    if ticket_id == body.target_ticket_id:
+        raise HTTPException(status_code=400, detail="Kan inte slå ihop ett ärende med sig självt")
+
+    source = await _get_ticket_or_404(ticket_id, db)
+    target = await _get_ticket_or_404(body.target_ticket_id, db)
+
+    if source.customer_id != target.customer_id:
+        raise HTTPException(status_code=400, detail="Ärendena måste tillhöra samma kund")
+    if source.parent_ticket_id:
+        raise HTTPException(status_code=400, detail="Ärendet är redan sammanslaget")
+    if target.parent_ticket_id:
+        raise HTTPException(status_code=400, detail="Målärendet är självt sammanslaget i ett annat ärende")
+    if target.status == "closed":
+        raise HTTPException(status_code=400, detail="Kan inte slå ihop in i ett stängt ärende")
+
+    now = datetime.now(timezone.utc)
+
+    # Flytta meddelanden, bilagor och tidsposter till målet
+    opts = {"synchronize_session": False}
+    await db.execute(update(TicketMessage).where(TicketMessage.ticket_id == source.id).values(ticket_id=target.id), execution_options=opts)
+    await db.execute(update(TicketAttachment).where(TicketAttachment.ticket_id == source.id).values(ticket_id=target.id), execution_options=opts)
+    await db.execute(update(TicketTimeEntry).where(TicketTimeEntry.ticket_id == source.id).values(ticket_id=target.id), execution_options=opts)
+
+    # Flytta kontakter (bevakare) — undvik dubbletter
+    target_contact_ids = {tc.contact_id for tc in (target.contacts or [])}
+    for tc in (source.contacts or []):
+        if tc.contact_id in target_contact_ids:
+            await db.delete(tc)
+        else:
+            tc.ticket_id = target.id
+
+    # Eventuella tidigare barn till källan flyttas till målet
+    await db.execute(
+        update(Ticket).where(Ticket.parent_ticket_id == source.id).values(parent_ticket_id=target.id),
+        execution_options=opts,
+    )
+
+    # Källans inledande beskrivning ligger separat från meddelandena — flytta in den också.
+    if source.description:
+        db.add(TicketMessage(
+            id=str(uuid.uuid4()),
+            ticket_id=target.id,
+            author_user_id=source.created_by_user_id,
+            author_email=source.source_email,
+            author_name=None,
+            body=f"<em>Från sammanslaget ärende {html.escape(source.ticket_number)}:</em><br>{source.description}",
+            is_internal=False,
+            source=source.source,
+            created_at=source.created_at,
+        ))
+
+    # Systemnotis i målet + historik i båda
+    db.add(TicketMessage(
+        id=str(uuid.uuid4()),
+        ticket_id=target.id,
+        author_user_id=user.id,
+        body=f"Ärende <strong>{html.escape(source.ticket_number)}</strong> "
+             f"({html.escape(source.title)}) slogs samman hit.",
+        is_internal=True,
+        source="portal",
+    ))
+    await _add_history(db, target.id, user.id, "merged_from", None, source.ticket_number)
+    await _add_history(db, source.id, user.id, "merged_into", None, target.ticket_number)
+
+    # Stäng källan och koppla som child
+    source.parent_ticket_id = target.id
+    source.status = "closed"
+    source.closed_at = now
+
+    await db.commit()
+    target = await _get_ticket_or_404(target.id, db)
+    return _ticket_dict(target, include_internals=True)
+
+
 # ── Meddelanden ────────────────────────────────────────────────────────────────
 
 class MessageBody(BaseModel):
@@ -461,6 +567,10 @@ async def post_message(
 
     if body.is_internal and not _is_staff(user):
         raise HTTPException(status_code=403, detail="Interna noter är bara för personal")
+
+    # Stängda ärenden är slutgiltiga — kunder kan inte återuppta dem via portalen.
+    if ticket.status == "closed" and not _is_staff(user):
+        raise HTTPException(status_code=409, detail="Ärendet är stängt och kan inte återöppnas. Skapa ett nytt ärende.")
 
     # Sanitera HTML (enkel escaping)
     safe_body = html.escape(body.body).replace("\n", "<br>")
@@ -494,13 +604,11 @@ async def post_message(
             elif ticket.status == "new":
                 ticket.status = "open"
                 await _add_history(db, ticket.id, user.id, "status", "new", "open")
-            elif ticket.status in ("resolved", "closed"):
-                # Kund återkopplar på ett avslutat ärende → öppna igen
-                old = ticket.status
+            elif ticket.status == "resolved":
+                # Kund återkopplar på ett löst (men ej stängt) ärende → öppna igen
                 ticket.status = "in_progress"
                 ticket.resolved_at = None
-                ticket.closed_at = None
-                await _add_history(db, ticket.id, user.id, "status", old, "in_progress")
+                await _add_history(db, ticket.id, user.id, "status", "resolved", "in_progress")
 
     await db.commit()
 

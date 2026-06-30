@@ -321,6 +321,10 @@ class Ticket(Base):
     subcategory_id: Mapped[str | None] = mapped_column(
         String, ForeignKey("ticket_categories.id"), nullable=True
     )
+    # Sammanslagning: om satt är detta ärende ett barn som mergats in i parent-ärendet.
+    parent_ticket_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("tickets.id"), nullable=True, index=True
+    )
     title: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     resolution: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -343,6 +347,13 @@ class Ticket(Base):
     assigned_to: Mapped["User | None"] = relationship(foreign_keys=[assigned_to_user_id])
     category: Mapped["TicketCategory | None"] = relationship(foreign_keys=[category_id])
     subcategory: Mapped["TicketCategory | None"] = relationship(foreign_keys=[subcategory_id])
+    parent: Mapped["Ticket | None"] = relationship(
+        "Ticket", remote_side="Ticket.id", foreign_keys=[parent_ticket_id],
+        back_populates="merged_children",
+    )
+    merged_children: Mapped[list["Ticket"]] = relationship(
+        "Ticket", foreign_keys="Ticket.parent_ticket_id", back_populates="parent",
+    )
     messages: Mapped[list["TicketMessage"]] = relationship(
         back_populates="ticket", cascade="all, delete-orphan", order_by="TicketMessage.created_at"
     )

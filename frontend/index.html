@@ -1268,6 +1268,8 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
         <div id="td-admin-actions"></div>
       </div>
 
+      <div id="td-merge-banner" style="margin-bottom:16px"></div>
+
       <!-- 2-kolumn: konversation + sidebar -->
       <div style="display:grid;grid-template-columns:1fr 300px;gap:16px;align-items:start">
 
@@ -1671,6 +1673,26 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
       <button class="btn btn-g" onclick="closeModal('modal-ticket-contact')">Avbryt</button>
       <button class="btn btn-p" onclick="saveTicketContact()"><i class="ti ti-check"></i> Lägg till</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Slå ihop ärende -->
+<div id="modal-merge" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:500;align-items:center;justify-content:center" onclick="if(event.target===this)closeModal('modal-merge')">
+  <div style="background:#fff;border-radius:12px;padding:28px;width:460px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,0.2)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700">Slå ihop ärende</div>
+      <button class="btn btn-g btn-sm btn-ico" onclick="closeModal('modal-merge')"><i class="ti ti-x"></i></button>
+    </div>
+    <p style="font-size:13px;color:var(--sub);margin:0 0 16px;line-height:1.5">Allt innehåll (meddelanden, bilagor, tid, kontakter) flyttas till målärendet. Detta ärende stängs som ett underärende och kan inte återöppnas.</p>
+    <div id="merge-error" class="alert al-e" style="display:none;margin-bottom:12px"><i class="ti ti-alert-circle"></i><span id="merge-error-msg"></span></div>
+    <div class="fr">
+      <label class="fl">Målärende (samma kund)</label>
+      <select class="fi" id="merge-target-sel"><option value="">— välj ärende —</option></select>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+      <button class="btn btn-g" onclick="closeModal('modal-merge')">Avbryt</button>
+      <button class="btn btn-p" id="merge-submit-btn" onclick="submitMerge()"><i class="ti ti-arrow-merge"></i> Slå ihop</button>
     </div>
   </div>
 </div>
@@ -4685,12 +4707,39 @@ function renderTicketDetail() {
     `<span class="b b-muted">${TYPE_LABEL[tk.type]||tk.type}</span>` +
     (tk.sla_breached ? '<span class="b" style="background:#fce8e6;color:#c5221f">SLA brutet</span>' : '');
 
-  // Admin-åtgärder (radera)
+  // Admin-åtgärder (merga + radera)
   const adminActions = document.getElementById('td-admin-actions');
   if (adminActions) {
-    adminActions.innerHTML = currentUser?.role === 'admin'
-      ? `<button class="btn btn-danger btn-sm" onclick="deleteTicket('${tk.id}')"><i class="ti ti-trash"></i> Radera ärende</button>`
-      : '';
+    if (isStaff) {
+      const canMerge = !tk.parent_ticket_id && tk.status !== 'closed';
+      adminActions.innerHTML = `<div style="display:flex;gap:6px">`
+        + (canMerge ? `<button class="btn btn-g btn-sm" onclick="openMergeModal()"><i class="ti ti-arrow-merge"></i> Slå ihop</button>` : '')
+        + `<button class="btn btn-danger btn-sm" onclick="deleteTicket('${tk.id}')"><i class="ti ti-trash"></i> Radera ärende</button>`
+        + `</div>`;
+    } else {
+      adminActions.innerHTML = '';
+    }
+  }
+
+  // Banner för sammanslagningsrelationer
+  const mergeBanner = document.getElementById('td-merge-banner');
+  if (mergeBanner) {
+    let html = '';
+    if (tk.parent_ticket_id) {
+      html += `<div class="alert" style="background:var(--tint);border:1px solid var(--border);display:flex;align-items:center;gap:8px">
+        <i class="ti ti-arrow-merge"></i>
+        <span>Detta ärende är sammanslaget i
+          <a href="#" onclick="openTicketDetail('${tk.parent_ticket_id}');return false" style="font-weight:600;color:var(--blue)">${escapeHtml(tk.parent_ticket_number||'')}</a>
+          och kan inte längre uppdateras.</span></div>`;
+    }
+    if (tk.merged_children && tk.merged_children.length) {
+      const links = tk.merged_children.map(c =>
+        `<a href="#" onclick="openTicketDetail('${c.id}');return false" style="font-weight:600;color:var(--blue)">${escapeHtml(c.ticket_number)}</a>`
+      ).join(', ');
+      html += `<div class="alert" style="background:var(--tint);border:1px solid var(--border);display:flex;align-items:center;gap:8px">
+        <i class="ti ti-git-merge"></i><span>Sammanslagna ärenden: ${links}</span></div>`;
+    }
+    mergeBanner.innerHTML = html;
   }
 
   // Info-kort
@@ -4806,9 +4855,9 @@ function renderTicketDetail() {
     : '';
   msgsEl.innerHTML = descHtml + sep + msgsHtml;
 
-  // Svarsformulär
-  const closed = ['closed','cancelled','resolved'].includes(tk.status);
-  document.getElementById('td-reply-card').style.display = (closed && !isStaff) ? 'none' : '';
+  // Svarsformulär — kund kan svara på resolved (återöppnar), men inte på stängt/avbrutet (terminalt).
+  const noReply = ['closed','cancelled'].includes(tk.status);
+  document.getElementById('td-reply-card').style.display = (noReply && !isStaff) ? 'none' : '';
   if (isStaff) document.getElementById('td-internal-wrap').style.display = 'flex';
 
   // Historik
@@ -4955,6 +5004,51 @@ async function deleteTicket(ticketId) {
     nav('tickets');
     t('Ärende raderat');
   } catch(e) { t(e.message, 'err'); }
+}
+
+async function openMergeModal() {
+  const tk = _currentTicket;
+  if (!tk) return;
+  const sel = document.getElementById('merge-target-sel');
+  document.getElementById('merge-error').style.display = 'none';
+  sel.innerHTML = '<option value="">Laddar…</option>';
+  openModal('modal-merge');
+  try {
+    const list = await api('/api/tickets?customer_id=' + encodeURIComponent(tk.customer_id));
+    const candidates = list.filter(o => o.id !== tk.id && !o.parent_ticket_id && o.status !== 'closed');
+    if (!candidates.length) {
+      sel.innerHTML = '<option value="">Inga möjliga målärenden för kunden</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">— välj ärende —</option>' + candidates.map(o =>
+      `<option value="${o.id}">${escapeHtml(o.ticket_number)} — ${escapeHtml(o.title)} (${STATUS_LABEL[o.status]||o.status})</option>`
+    ).join('');
+  } catch(e) {
+    sel.innerHTML = '<option value="">Kunde inte ladda ärenden</option>';
+  }
+}
+
+async function submitMerge() {
+  const targetId = document.getElementById('merge-target-sel').value;
+  const errEl = document.getElementById('merge-error');
+  const errMsg = document.getElementById('merge-error-msg');
+  errEl.style.display = 'none';
+  if (!targetId) { errMsg.textContent = 'Välj ett målärende.'; errEl.style.display = 'flex'; return; }
+  const btn = document.getElementById('merge-submit-btn');
+  btn.disabled = true;
+  try {
+    await api('/api/tickets/' + _currentTicket.id + '/merge', {
+      method: 'POST',
+      body: JSON.stringify({ target_ticket_id: targetId }),
+    });
+    closeModal('modal-merge');
+    t('Ärendena sammanslagna');
+    openTicketDetail(targetId);
+  } catch(e) {
+    errMsg.textContent = e.message; errEl.style.display = 'flex';
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 async function deleteTicketTimeEntry(entryId) {

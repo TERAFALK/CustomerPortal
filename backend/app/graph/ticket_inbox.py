@@ -112,18 +112,24 @@ async def _handle_message(db, raw_msg: dict, headers: dict) -> None:
     db.add(ProcessedEmail(email_message_id=graph_id))
 
     # Kolla om detta är ett svar på befintligt ärende
+    forced_title: str | None = None
     ref_match = TICKET_REF_RE.search(subject)
     if ref_match:
-        ticket_number = ref_match.group(1).upper()
+        ref_number = ref_match.group(1).upper()
         ticket = await db.scalar(
-            select(Ticket).where(Ticket.ticket_number == ticket_number)
+            select(Ticket).where(Ticket.ticket_number == ref_number)
         )
-        if ticket:
+        if ticket and ticket.status != "closed":
             await _add_email_reply(db, ticket, sender_email, sender_name, body_html, graph_id)
             return
-        else:
+        elif ticket and ticket.status == "closed":
+            # Stängda ärenden är slutgiltiga — svar skapar ett nytt uppföljningsärende.
+            logger.info("Svar på stängt ärende %s → skapar uppföljningsärende", ref_number)
+            forced_title = f"Uppföljning på {ref_number}: {_clean_subject(subject)}"
+            # falla igenom till nyskapande nedan
+        elif not ticket:
             # Ärendet finns inte längre (raderat) — skippa utan att skapa nytt
-            logger.info("Ignorerar mail med referens till raderat ärende %s", ticket_number)
+            logger.info("Ignorerar mail med referens till raderat ärende %s", ref_number)
             return
 
     # Nytt ärende — matcha kund i prioritetsordning:
@@ -173,7 +179,7 @@ async def _handle_message(db, raw_msg: dict, headers: dict) -> None:
         type="incident",
         priority="medium",
         status="new",
-        title=_clean_subject(subject),
+        title=forced_title or _clean_subject(subject),
         description=body_html,
         source="email",
         source_email=sender_email,
@@ -233,12 +239,11 @@ async def _add_email_reply(
         email_message_id=graph_id,
     ))
 
-    # Kund svarar → öppna ärendet igen (även om det var löst/stängt).
-    if ticket.status in ("pending_customer", "resolved", "closed"):
+    # Kund svarar → öppna ärendet igen (löst men ej stängt; stängda hanteras innan denna funktion).
+    if ticket.status in ("pending_customer", "resolved"):
         old_status = ticket.status
         ticket.status = "in_progress"
         ticket.resolved_at = None
-        ticket.closed_at = None
         db.add(TicketHistory(
             id=str(uuid.uuid4()),
             ticket_id=ticket.id,

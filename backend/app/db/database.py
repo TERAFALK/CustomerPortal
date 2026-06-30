@@ -44,6 +44,8 @@ async def init_db() -> None:
             "ALTER TABLE customers DROP COLUMN IF EXISTS contact_email",
             # Tekniker-rollen är borttagen — befintliga tekniker blir administratörer
             "UPDATE users SET role = 'admin' WHERE role = 'technician'",
+            # Sammanslagning av ärenden (parent/child)
+            "ALTER TABLE tickets ADD COLUMN IF NOT EXISTS parent_ticket_id VARCHAR REFERENCES tickets(id)",
         ]:
             await conn.execute(text(stmt))
     await _seed_phase_templates()
