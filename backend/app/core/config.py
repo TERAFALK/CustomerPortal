@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     # Databas
     DATABASE_URL: str = "postgresql+asyncpg://insight:insight@db:5432/insight"
 
+    # Redis (valfritt) — delad rate-limit-lagring och schemaläggar-lås för flera repliker.
+    # Tomt = enkelnod, in-memory (korrekt för en replik).
+    REDIS_URL: str = ""
+
     # App-säkerhet
     SECRET_KEY: str = _INSECURE_SECRET
     # Generera med: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"

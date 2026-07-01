@@ -46,6 +46,15 @@ async def init_db() -> None:
             "UPDATE users SET role = 'admin' WHERE role = 'technician'",
             # Sammanslagning av ärenden (parent/child)
             "ALTER TABLE tickets ADD COLUMN IF NOT EXISTS parent_ticket_id VARCHAR REFERENCES tickets(id)",
+            # En äldre audit_logs-design hade extra NOT NULL-kolumner (t.ex. user_email)
+            # som blockerar inserts från den nya modellen. Droppa alla kolumner som
+            # inte tillhör den nuvarande modellen (no-op på fräscha installationer).
+            "DO $$ DECLARE col text; BEGIN "
+            "FOR col IN SELECT column_name FROM information_schema.columns "
+            "WHERE table_name='audit_logs' AND column_name NOT IN "
+            "('id','actor_user_id','actor_email','action','entity_type','entity_id','summary','created_at') "
+            "LOOP EXECUTE 'ALTER TABLE audit_logs DROP COLUMN ' || quote_ident(col); END LOOP; "
+            "END $$;",
             # Audit-logg — säkerställ alla kolumner även om tabellen redan fanns
             "ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS actor_user_id VARCHAR",
             "ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS actor_email VARCHAR NOT NULL DEFAULT ''",

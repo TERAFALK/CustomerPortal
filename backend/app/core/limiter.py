@@ -8,6 +8,8 @@ på klientens IP via X-Forwarded-For för oautentiserade endpoints (t.ex. login)
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+from app.core.config import settings
+
 
 def _rate_key(request) -> str:
     auth = request.headers.get("authorization", "")
@@ -23,4 +25,9 @@ def _rate_key(request) -> str:
     return "ip:" + get_remote_address(request)
 
 
-limiter = Limiter(key_func=_rate_key)
+# Med REDIS_URL delas rate-limit-räknarna mellan repliker; annars in-memory per process.
+_limiter_kwargs = {"key_func": _rate_key}
+if settings.REDIS_URL:
+    _limiter_kwargs["storage_uri"] = settings.REDIS_URL
+
+limiter = Limiter(**_limiter_kwargs)

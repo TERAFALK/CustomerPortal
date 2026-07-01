@@ -124,9 +124,12 @@ class GraphClient:
     async def _fetch_onedrive_usage(self, client):
         try:
             token = await self._get_token(client)
+            # Graph svarar med 302 → förautentiserad nedladdnings-URL. Följ redirecten
+            # (httpx tar automatiskt bort Authorization-headern vid byte av host).
             r = await client.get(
                 f"{GRAPH_BASE}/reports/getOneDriveUsageAccountDetail(period='D30')",
                 headers={"Authorization": f"Bearer {token}"},
+                follow_redirects=True,
             )
             r.raise_for_status()
             return r.text
@@ -140,6 +143,7 @@ class GraphClient:
             r = await client.get(
                 f"{GRAPH_BASE}/reports/getSharePointSiteUsageDetail(period='D30')",
                 headers={"Authorization": f"Bearer {token}"},
+                follow_redirects=True,
             )
             r.raise_for_status()
             return r.text

@@ -30,6 +30,8 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       PORTAL_URL: ${PORTAL_URL:-}
+      # Valfritt — sätt först när du kör flera backend-repliker (se redis-tjänsten nedan).
+      REDIS_URL: ${REDIS_URL:-}
       GRAPH_TENANT_ID: ${GRAPH_TENANT_ID:-}
       GRAPH_CLIENT_ID: ${GRAPH_CLIENT_ID:-}
       GRAPH_CLIENT_SECRET: ${GRAPH_CLIENT_SECRET:-}
@@ -59,6 +61,24 @@ services:
     networks:
       - internal
       - npm_proxy
+
+  # ── Valfritt: Redis för fler-replikskörning ──────────────────────────────────
+  # Behövs INTE för en enda backend-replik. Aktivera först när du skalar
+  # horisontellt (delad rate limit + schemaläggar-lås mot dubbla rapporter/mail):
+  #   1. Avkommentera tjänsten nedan.
+  #   2. Sätt REDIS_URL=redis://redis:6379/0 i .env.
+  #   3. docker compose up -d
+  # redis:
+  #   image: redis:7-alpine
+  #   restart: unless-stopped
+  #   command: ["redis-server", "--save", "", "--appendonly", "no"]
+  #   networks:
+  #     - internal
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 3s
+  #     retries: 5
 
 networks:
   internal:

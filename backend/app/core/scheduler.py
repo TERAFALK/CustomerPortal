@@ -18,20 +18,30 @@ _SETTING_KEYS = ("report_schedule_day", "report_schedule_hour", "report_schedule
 
 
 def start_scheduler() -> None:
+    from app.core.redis_client import acquire_run_lock
+
     async def _run_monthly_reports():
+        if not await acquire_run_lock("monthly_reports", 600):
+            return
         from app.reports.runner import run_all_reports
         logger.info("Schemalagd rapportkörning startar")
         await run_all_reports()
 
     async def _poll_ticket_inbox():
+        if not await acquire_run_lock("ticket_inbox_poll", 90):
+            return
         from app.graph.ticket_inbox import poll_support_inbox
         await poll_support_inbox()
 
     async def _check_sla_breaches():
+        if not await acquire_run_lock("sla_checker", 600):
+            return
         from app.core.sla_checker import check_sla_breaches
         await check_sla_breaches()
 
     async def _auto_close_resolved():
+        if not await acquire_run_lock("auto_close_resolved", 3600):
+            return
         from app.core.sla_checker import auto_close_resolved_tickets
         await auto_close_resolved_tickets()
 
