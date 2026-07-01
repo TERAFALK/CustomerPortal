@@ -46,6 +46,14 @@ async def init_db() -> None:
             "UPDATE users SET role = 'admin' WHERE role = 'technician'",
             # Sammanslagning av ärenden (parent/child)
             "ALTER TABLE tickets ADD COLUMN IF NOT EXISTS parent_ticket_id VARCHAR REFERENCES tickets(id)",
+            # Audit-logg — säkerställ alla kolumner även om tabellen redan fanns
+            "ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS actor_user_id VARCHAR",
+            "ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS actor_email VARCHAR NOT NULL DEFAULT ''",
+            "ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS action VARCHAR NOT NULL DEFAULT ''",
+            "ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS entity_type VARCHAR NOT NULL DEFAULT ''",
+            "ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS entity_id VARCHAR",
+            "ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS summary VARCHAR NOT NULL DEFAULT ''",
+            "ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now()",
         ]:
             await conn.execute(text(stmt))
     await _seed_phase_templates()
