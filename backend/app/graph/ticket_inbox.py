@@ -220,8 +220,8 @@ async def _handle_message(db, raw_msg: dict, headers: dict) -> None:
     try:
         from app.graph.ticket_mailer import send_ticket_created
         await send_ticket_created(ticket_number, ticket.title, sender_email, sender_name, ticket_id=ticket.id)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Kunde inte skicka bekräftelsemejl för %s: %s", ticket_number, e)
 
 
 async def _add_email_reply(

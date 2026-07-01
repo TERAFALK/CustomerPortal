@@ -1,5 +1,6 @@
 """API-endpoints för order- och projekthantering."""
 
+import logging
 import math
 import os
 import uuid
@@ -17,6 +18,8 @@ from app.db.database import get_db
 from app.db.models import CustomerContact, Order, OrderContact, OrderDocument, OrderPhaseTemplate, ProjectTask, TimeEntry, User
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 DOCUMENTS_DIR = "/app/order_documents"
 
@@ -155,8 +158,8 @@ async def create_order(
     try:
         from app.graph.order_mailer import send_order_created
         await send_order_created(order)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Kunde inte skicka order_created-notis för %s: %s", order.id, e)
 
     return order
 
@@ -209,8 +212,8 @@ async def update_order(
         from app.graph.order_mailer import send_order_status_changed
         if body.status and body.status != old_status:
             await send_order_status_changed(order, old_status, body.status)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Kunde inte skicka order_status-notis för %s: %s", order_id, e)
 
     return _order_dict(order)
 
@@ -308,8 +311,8 @@ async def set_phase(
     try:
         from app.graph.order_mailer import send_order_phase_changed
         await send_order_phase_changed(order, old_phase_name, phase.name)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Kunde inte skicka order_phase-notis för %s: %s", order_id, e)
 
     return _order_dict(order)
 

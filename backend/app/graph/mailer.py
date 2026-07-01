@@ -6,6 +6,7 @@ All mail (rapporter, ärenden, ordrar) går genom `send_mail` och byggs med
 TERAFALK-design (logo-header, vitt kort, enhetlig typografi).
 """
 
+import asyncio
 import logging
 
 import httpx
@@ -15,6 +16,8 @@ from app.core import app_settings
 logger = logging.getLogger(__name__)
 
 GRAPH_SEND_URL = "https://graph.microsoft.com/v1.0/users/{sender}/sendMail"
+
+_MAX_SEND_ATTEMPTS = 3
 
 # TERAFALK-logotyp (SVG, base64) — används i headern på alla mejl.
 LOGO_B64 = "PHN2ZyBpZD0iTGF5ZXJfMSIgZGF0YS1uYW1lPSJMYXllciAxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2OTUuMzkgODQuMjQiPjxwYXRoIGQ9Ik0yMzYuMTgsNDU1LjU3djE1SDIwMS43NHY2OWgtMTV2LTY5SDE1Mi4zdi0xNVoiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0xNTIuMyAtNDU1LjQ1KSIvPjxwYXRoIGQ9Ik0yNjMuMyw0NzguMTN2Ny44aDU0djE1aC01NHYxNS44NGE3Ljc0LDcuNzQsMCwwLDAsNy42OCw3LjY4SDMzMi4zdjE1SDI3MWEyMi42MywyMi42MywwLDAsMS0yMi41Ni0yMi42N1Y0NzguMTNBMjIuNjQsMjIuNjQsMCwwLDEsMjcxLDQ1NS40NUgzMzIuM3YxNUgyNzFBNy43Myw3LjczLDAsMCwwLDI2My4zLDQ3OC4xM1oiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0xNTIuMyAtNDU1LjQ1KSIvPjxwYXRoIGQ9Ik00MTIuMSw1MjQuNjlsNy42OCwxNUg0MDNsLTcuNjgtMTUtOC0xNS43Mi0uMzYtLjcyYTE0Ljg3LDE0Ljg3LDAsMCwwLTEyLjcyLTcuMmgtMTV2MzguNjNoLTE1di04NGg1M2EyMi41MywyMi41MywwLDAsMSwyMi41NiwyMi41NiwyMi43NSwyMi43NSwwLDAsMS0xMy4yLDIwLjY0LDIwLDIwLDAsMCwxLTYuNDgsMS44Wm0tMTQuODgtMzguNjRhNyw3LDAsMCwwLDMuMTItLjcyLDcuNjIsNy42MiwwLDAsMCw0LjU2LTcsNy45Miw3LjkyLDAsMCwwLTIuMjgtNS41Miw3LjU2LDcuNTYsMCwwLDAtNS40LTIuMTZoLTM4djE1LjQ4WiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTE1Mi4zIC00NTUuNDUpIi8+PHBhdGggZD0iTTUxMi43OCw1MzkuNDRINDk2bC03LjY4LTE1LTE4LjM2LTM2LTE4LjM2LDM2LTcuNjgsMTVINDI3LjFsNy42OC0xNSwzNS4xNi02OSwzNS4xNiw2OVoiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0xNTIuMyAtNDU1LjQ1KSIvPjxwYXRoIGQ9Ik02MDQuMSw0NTUuNDV2MTVINTQyLjc4YTcuNzMsNy43MywwLDAsMC03LjY4LDcuNjh2Ny44aDU0djE1SDUzNXYzOC41MUg1MjAuMVY0NzguMTNhMjIuNjQsMjIuNjQsMCwwLDEsMjIuNTYtMjIuNjhaIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMTUyLjMgLTQ1NS40NSkiLz48cGF0aCBkPSJNNjc4LjM4LDUzOS40NGgtMTYuOGwtNy42OC0xNS0xOC4zNi0zNi0xOC4zNiwzNi03LjY4LDE1SDU5Mi43bDcuNjgtMTUsMzUuMTYtNjksMzUuMTYsNjlaIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMTUyLjMgLTQ1NS40NSkiLz48cGF0aCBkPSJNNzUxLjcsNTI0LjU3djE1SDcwOS4xYTI2LjA5LDI2LjA5LDAsMCwxLTExLjc2LTIuNzYsMjYuNTksMjYuNTksMCwwLDEtMTIuMTItMTIuMjMsMjYuMTIsMjYuMTIsMCwwLDEtMi43Ni0xMS43NlY0NTUuNTdoMTV2NTguNjhhMTIsMTIsMCwwLDAsMTAuMiwxMC4yWiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTE1Mi4zIC00NTUuNDUpIi8+PHBhdGggZD0iTTgxMSw0ODkuMTdsMzYuMzUsNTAuMjdIODI4Ljg1bC0yOS00MC4wNy0yMS4yNCwxOS4zMnYyMC43NWgtMTV2LTg0aDE1djQzbDEyLjM2LTExLjI4LDExLjE2LTEwLjIsMjMuMzktMjEuNDhoMjIuMloiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0xNTIuMyAtNDU1LjQ1KSIvPjwvc3ZnPg=="
@@ -36,6 +39,11 @@ async def _get_token() -> str:
     return await _base()
 
 
+def _is_transient(status: int | None) -> bool:
+    """Nätverksfel (status None), 429 och 5xx är värda att försöka igen. 401 hanteras separat."""
+    return status is None or status == 429 or status >= 500
+
+
 async def send_mail(
     to_email: str,
     to_name: str,
@@ -45,13 +53,16 @@ async def send_mail(
     sender: str | None = None,
     attachments: list[dict] | None = None,
 ) -> None:
-    """Skickar ett mejl via Microsoft Graph. Raises httpx.HTTPStatusError vid fel."""
+    """Skickar ett mejl via Microsoft Graph med retry/backoff.
+
+    Raises httpx.HTTPStatusError om alla försök misslyckas.
+    """
     if not app_settings.get("graph_tenant_id"):
         logger.warning("Graph ej konfigurerat — hoppar över mejl till %s", to_email)
         return
 
     sender = sender or app_settings.get("support_inbox") or "support@terafalk.com"
-    token = await _get_token()
+    url = GRAPH_SEND_URL.format(sender=sender)
 
     message: dict = {
         "subject": subject,
@@ -60,15 +71,42 @@ async def send_mail(
     }
     if attachments:
         message["attachments"] = attachments
+    payload = {"message": message, "saveToSentItems": False}
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.post(
-            GRAPH_SEND_URL.format(sender=sender),
-            json={"message": message, "saveToSentItems": False},
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        r.raise_for_status()
-    logger.info("Mejl skickat till %s: %s", to_email, subject)
+    last_exc: Exception | None = None
+    for attempt in range(_MAX_SEND_ATTEMPTS):
+        try:
+            token = await _get_token()
+            async with httpx.AsyncClient(timeout=30) as client:
+                r = await client.post(url, json=payload, headers={"Authorization": f"Bearer {token}"})
+
+            if r.status_code == 401:
+                # Token kan ha blivit ogiltig — töm cachen och försök igen med ny token
+                from app.graph.sender import invalidate_token
+                invalidate_token()
+                r.raise_for_status()
+
+            r.raise_for_status()
+            logger.info("Mejl skickat till %s: %s", to_email, subject)
+            return
+
+        except httpx.HTTPStatusError as e:
+            last_exc = e
+            status = e.response.status_code
+            retryable = status == 401 or _is_transient(status)
+            if attempt < _MAX_SEND_ATTEMPTS - 1 and retryable:
+                await asyncio.sleep(2 ** attempt)
+                continue
+            raise
+        except httpx.TransportError as e:
+            last_exc = e
+            if attempt < _MAX_SEND_ATTEMPTS - 1:
+                await asyncio.sleep(2 ** attempt)
+                continue
+            raise
+
+    if last_exc:
+        raise last_exc
 
 
 def pdf_attachment(filename: str, content_b64: str) -> dict:

@@ -13,7 +13,9 @@ Setup-guide:
   5. Overview → kopiera Application (client) ID och Directory (tenant) ID till .env
 """
 
+import asyncio
 import logging
+import time
 
 import httpx
 
@@ -23,17 +25,46 @@ logger = logging.getLogger(__name__)
 
 GRAPH_TOKEN_URL = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
 
+# Enkel token-cache i minnet. Nyckel = (tenant, client) så att ändrade Graph-
+# inställningar automatiskt ger en ny token. Förnyas 60 s innan utgång.
+_token_cache: dict[tuple[str, str], tuple[str, float]] = {}
+_token_lock = asyncio.Lock()
+
+
+def invalidate_token() -> None:
+    """Töm token-cachen — anropas t.ex. vid 401 från Graph."""
+    _token_cache.clear()
+
 
 async def _get_token() -> str:
-    async with httpx.AsyncClient() as client:
-        r = await client.post(
-            GRAPH_TOKEN_URL.format(tenant=app_settings.get("graph_tenant_id")),
-            data={
-                "grant_type": "client_credentials",
-                "client_id": app_settings.get("graph_client_id"),
-                "client_secret": app_settings.get("graph_client_secret"),
-                "scope": "https://graph.microsoft.com/.default",
-            },
-        )
-        r.raise_for_status()
-        return r.json()["access_token"]
+    tenant = app_settings.get("graph_tenant_id")
+    client_id = app_settings.get("graph_client_id")
+    key = (tenant, client_id)
+
+    cached = _token_cache.get(key)
+    if cached and time.time() < cached[1] - 60:
+        return cached[0]
+
+    async with _token_lock:
+        # Kontrollera igen — någon annan kan ha förnyat medan vi väntade på låset
+        cached = _token_cache.get(key)
+        if cached and time.time() < cached[1] - 60:
+            return cached[0]
+
+        async with httpx.AsyncClient() as client:
+            r = await client.post(
+                GRAPH_TOKEN_URL.format(tenant=tenant),
+                data={
+                    "grant_type": "client_credentials",
+                    "client_id": client_id,
+                    "client_secret": app_settings.get("graph_client_secret"),
+                    "scope": "https://graph.microsoft.com/.default",
+                },
+            )
+            r.raise_for_status()
+            data = r.json()
+
+        token = data["access_token"]
+        expires_at = time.time() + float(data.get("expires_in", 3600))
+        _token_cache[key] = (token, expires_at)
+        return token

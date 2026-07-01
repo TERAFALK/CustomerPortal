@@ -1,6 +1,7 @@
 """API-endpoints för ITIL-baserad ärendehantering."""
 
 import html
+import logging
 import math
 import os
 import uuid
@@ -24,6 +25,8 @@ from app.db.models import (
 )
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 ATTACHMENTS_DIR = "/app/ticket_attachments"
 
@@ -329,8 +332,8 @@ async def create_ticket(
                 ticket_number, body.title, user.email, user.full_name or user.email,
                 ticket_id=ticket.id,
             )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Kunde inte skicka bekräftelsemejl för %s: %s", ticket_number, e)
 
     ticket = await _get_ticket_or_404(ticket.id, db)
     return _ticket_dict(ticket, include_internals=_is_staff(user))
@@ -442,8 +445,8 @@ async def update_ticket(
                 await send_ticket_resolved(ticket)
             else:
                 await send_ticket_status_changed(ticket, old_status, ticket.status)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Kunde inte skicka ärendenotis för %s: %s", ticket.ticket_number, e)
 
     return _ticket_dict(ticket, include_internals=_is_staff(user))
 
@@ -621,8 +624,8 @@ async def post_message(
     try:
         from app.graph.ticket_mailer import send_ticket_reply
         await send_ticket_reply(ticket, user, safe_body, body.is_internal)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Kunde inte skicka svarsnotis för %s: %s", ticket.ticket_number, e)
 
     await db.refresh(msg)
     return {
