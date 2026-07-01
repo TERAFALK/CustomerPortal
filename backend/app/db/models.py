@@ -513,6 +513,18 @@ class OrderContact(Base):
 # Notifikationsinställningar
 # ─────────────────────────────────────────────
 
+class CannedResponse(Base):
+    """Återanvändbart standardsvar för ärendehanteringen."""
+
+    __tablename__ = "canned_responses"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_by: Mapped[str | None] = mapped_column(String, ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class AuditLog(Base):
     """Spårar känsliga admin-åtgärder (kund-, användar- och inställningsändringar)."""
 

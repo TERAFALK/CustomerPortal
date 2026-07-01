@@ -10,7 +10,7 @@ from datetime import date, datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -208,6 +208,34 @@ def _ticket_dict(ticket: Ticket, include_internals: bool = True) -> dict:
 
 # ── Lista ──────────────────────────────────────────────────────────────────────
 
+def _ticket_list_dict(t: Ticket) -> dict:
+    """Lätt summering för listvyer — laddar inte meddelanden/historik/tid."""
+    return {
+        "id": t.id,
+        "ticket_number": t.ticket_number,
+        "customer_id": t.customer_id,
+        "customer_name": t.customer.name if t.customer else None,
+        "type": t.type,
+        "status": t.status,
+        "priority": t.priority,
+        "title": t.title,
+        "assigned_to": {
+            "id": t.assigned_to.id,
+            "name": t.assigned_to.full_name or t.assigned_to.email,
+        } if t.assigned_to else None,
+        "sla_due_at": t.sla_due_at.isoformat() if t.sla_due_at else None,
+        "sla_breached": t.sla_breached,
+        "response_sla_breached": t.response_sla_breached,
+        "parent_ticket_id": t.parent_ticket_id,
+        "created_at": t.created_at.isoformat(),
+        "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+        "contacts": [
+            {"contact_id": tc.contact_id, "email": tc.contact.email}
+            for tc in (t.contacts or []) if tc.contact
+        ],
+    }
+
+
 @router.get("")
 async def list_tickets(
     status: str | None = None,
@@ -215,27 +243,33 @@ async def list_tickets(
     type: str | None = None,
     assigned_to: str | None = None,
     customer_id: str | None = None,
+    search: str | None = None,
+    skip: int = 0,
+    limit: int = 1000,
     user: User = Depends(current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # Lätt query — bara relationerna som listvyn behöver.
     q = select(Ticket).options(
         selectinload(Ticket.customer),
         selectinload(Ticket.assigned_to),
-        selectinload(Ticket.created_by),
-        selectinload(Ticket.category),
-        selectinload(Ticket.subcategory),
-        selectinload(Ticket.messages).selectinload(TicketMessage.author),
-        selectinload(Ticket.messages).selectinload(TicketMessage.attachments),
-        selectinload(Ticket.history),
         selectinload(Ticket.contacts).selectinload(TicketContact.contact),
-        selectinload(Ticket.time_entries).selectinload(TicketTimeEntry.user),
-        selectinload(Ticket.parent),
-        selectinload(Ticket.merged_children),
     )
     if not _is_staff(user):
         q = q.where(Ticket.customer_id == user.customer_id)
     elif customer_id:
         q = q.where(Ticket.customer_id == customer_id)
+
+    if search and search.strip():
+        like = f"%{search.strip()}%"
+        msg_ids = select(TicketMessage.ticket_id).where(TicketMessage.body.ilike(like))
+        q = q.where(or_(
+            Ticket.title.ilike(like),
+            Ticket.ticket_number.ilike(like),
+            Ticket.description.ilike(like),
+            Ticket.customer.has(Customer.name.ilike(like)),
+            Ticket.id.in_(msg_ids),
+        ))
 
     if status:
         q = q.where(Ticket.status == status)
@@ -246,12 +280,9 @@ async def list_tickets(
     if assigned_to:
         q = q.where(Ticket.assigned_to_user_id == assigned_to)
 
-    q = q.order_by(Ticket.created_at.desc())
+    q = q.order_by(Ticket.created_at.desc()).offset(skip).limit(min(limit, 2000))
     result = await db.scalars(q)
-    tickets = result.all()
-
-    include_int = _is_staff(user)
-    return [_ticket_dict(t, include_internals=include_int) for t in tickets]
+    return [_ticket_list_dict(t) for t in result.all()]
 
 
 # ── Skapa ──────────────────────────────────────────────────────────────────────

@@ -1198,6 +1198,36 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
             </div>
             <div class="fsec">SLA-tider per prioritet</div>
             <div id="s-sla-list"></div>
+
+            <div class="fsec">SLA-arbetstider</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:10px">När aktiv tickar SLA-klockan bara under arbetstid (annars dygnet runt).</div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:10px;cursor:pointer">
+              <input type="checkbox" id="bh-enabled"> Räkna SLA endast under arbetstid
+            </label>
+            <div class="f2">
+              <div class="fr" style="margin:0"><label class="fl">Starttid</label><input class="fi" id="bh-start" type="time"></div>
+              <div class="fr" style="margin:0"><label class="fl">Sluttid</label><input class="fi" id="bh-end" type="time"></div>
+            </div>
+            <div class="fr"><label class="fl">Arbetsdagar</label>
+              <div id="bh-days" style="display:flex;gap:10px;flex-wrap:wrap">
+                <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" class="bh-day" value="1">Mån</label>
+                <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" class="bh-day" value="2">Tis</label>
+                <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" class="bh-day" value="3">Ons</label>
+                <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" class="bh-day" value="4">Tor</label>
+                <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" class="bh-day" value="5">Fre</label>
+                <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" class="bh-day" value="6">Lör</label>
+                <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" class="bh-day" value="7">Sön</label>
+              </div>
+            </div>
+            <div class="fr"><label class="fl">Tidszon</label><input class="fi" id="bh-tz" placeholder="Europe/Stockholm"></div>
+            <button class="btn btn-p btn-sm" onclick="saveBusinessHours()" style="margin-top:4px"><i class="ti ti-check"></i> Spara arbetstider</button>
+
+            <div class="fsec">Standardsvar</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Återanvändbara svar som personal kan infoga i ärendesvar.</div>
+            <div id="s-canned-list" style="margin-bottom:12px"></div>
+            <div class="fr" style="margin:0"><label class="fl">Titel</label><input class="fi" id="canned-title" placeholder="T.ex. Bekräftelse mottagen"></div>
+            <div class="fr"><label class="fl">Text</label><textarea class="fi" id="canned-body" rows="3" placeholder="Svarstext…" style="resize:vertical"></textarea></div>
+            <button class="btn btn-p btn-sm" onclick="addCannedResponse()"><i class="ti ti-plus"></i> Lägg till standardsvar</button>
           </div>
 
           <!-- Användare -->
@@ -1240,7 +1270,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
         </div>
         <div style="flex:1"></div>
         <button class="btn btn-g btn-sm" id="ticket-mine-btn" onclick="toggleTicketMine()"><i class="ti ti-user"></i> Mina ärenden</button>
-        <input class="fi" id="ticket-search" placeholder="Sök ärende…" oninput="renderTicketsTable()" style="width:200px;padding:6px 10px">
+        <input class="fi" id="ticket-search" placeholder="Sök ärende, kund, innehåll…" oninput="onTicketSearch()" style="width:220px;padding:6px 10px">
       </div>
       <div class="card" style="padding:0;overflow:hidden">
         <table class="tbl" id="tickets-table">
@@ -1290,6 +1320,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
                 <label id="td-internal-wrap" style="display:none;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin-left:4px;background:var(--tint);padding:3px 8px;border-radius:6px">
                   <input type="checkbox" id="td-internal-cb"> Intern notering
                 </label>
+                <select id="td-canned-sel" onchange="insertCannedResponse(this.value)" style="display:none;margin-left:auto;font-size:12px;max-width:200px"><option value="">Standardsvar…</option></select>
               </div>
               <textarea id="td-reply-body" class="fi" rows="4" placeholder="Skriv ditt svar…" style="width:100%;resize:vertical;font-size:13px"></textarea>
               <div style="display:flex;gap:8px;margin-top:8px">
@@ -4601,11 +4632,20 @@ let _ticketStaff = [];
 
 // ── Lista ────────────────────────────────────────────────────────────────────
 
+let _ticketSearchTimer = null;
+
 async function loadTickets() {
   try {
-    _tickets = await api('/api/tickets');
+    const search = (document.getElementById('ticket-search')?.value || '').trim();
+    const qs = search ? ('?search=' + encodeURIComponent(search)) : '';
+    _tickets = await api('/api/tickets' + qs);
     renderTicketsTable();
   } catch(e) { t(e.message, 'err'); }
+}
+
+function onTicketSearch() {
+  clearTimeout(_ticketSearchTimer);
+  _ticketSearchTimer = setTimeout(loadTickets, 300);
 }
 
 function setTicketFilter(key, val, btn) {
@@ -4626,7 +4666,7 @@ function toggleTicketMine() {
 }
 
 function renderTicketsTable() {
-  const search = (document.getElementById('ticket-search')?.value || '').toLowerCase();
+  // Fritextsök sker serverside (loadTickets). Här filtreras bara status/mig.
   const myId = currentUser?.id;
 
   let list = _tickets.filter(tk => {
@@ -4643,7 +4683,6 @@ function renderTicketsTable() {
         if (tk.assigned_to?.id !== myId) return false;
       }
     }
-    if (search && !tk.title.toLowerCase().includes(search) && !tk.ticket_number.toLowerCase().includes(search) && !(tk.customer_name||'').toLowerCase().includes(search)) return false;
     return true;
   });
 
@@ -4704,6 +4743,8 @@ async function openTicketDetail(ticketId) {
   } catch(e) { t(e.message, 'err'); }
 }
 
+let _cannedResponses = [];
+
 async function _ensureTicketMeta() {
   if (!_ticketCategories.length) {
     _ticketCategories = await api('/api/ticket-settings/categories');
@@ -4714,6 +4755,20 @@ async function _ensureTicketMeta() {
       _ticketStaff = users.filter(u => u.role === 'admin');
     } catch(e) {}
   }
+  if (currentUser?.role === 'admin' && !_cannedResponses.length) {
+    try { _cannedResponses = await api('/api/canned-responses'); } catch(e) {}
+  }
+}
+
+function insertCannedResponse(id) {
+  const sel = document.getElementById('td-canned-sel');
+  const c = _cannedResponses.find(x => x.id === id);
+  if (c) {
+    const ta = document.getElementById('td-reply-body');
+    ta.value = (ta.value ? ta.value + '\n\n' : '') + c.body;
+    ta.focus();
+  }
+  if (sel) sel.value = '';
 }
 
 function switchTdTab(tab) {
@@ -4890,6 +4945,16 @@ function renderTicketDetail() {
   const noReply = ['closed','cancelled'].includes(tk.status);
   document.getElementById('td-reply-card').style.display = (noReply && !isStaff) ? 'none' : '';
   if (isStaff) document.getElementById('td-internal-wrap').style.display = 'flex';
+  const cannedSel = document.getElementById('td-canned-sel');
+  if (cannedSel) {
+    if (isStaff && _cannedResponses.length) {
+      cannedSel.style.display = '';
+      cannedSel.innerHTML = '<option value="">Standardsvar…</option>' +
+        _cannedResponses.map(c => `<option value="${c.id}">${escapeHtml(c.title)}</option>`).join('');
+    } else {
+      cannedSel.style.display = 'none';
+    }
+  }
 
   // Historik
   const hist = tk.history || [];
@@ -5257,6 +5322,79 @@ async function loadTicketSettings() {
   ]);
   renderCategorySettings();
   renderSlaSettings();
+  loadBusinessHours();
+  loadCannedResponses();
+}
+
+async function loadCannedResponses() {
+  const el = document.getElementById('s-canned-list');
+  try {
+    _cannedResponses = await api('/api/canned-responses');
+    if (!_cannedResponses.length) {
+      el.innerHTML = '<div style="color:var(--muted);font-size:13px">Inga standardsvar än.</div>';
+      return;
+    }
+    el.innerHTML = _cannedResponses.map(c => `
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600">${escapeHtml(c.title)}</div>
+          <div style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.body)}</div>
+        </div>
+        <button class="btn btn-danger btn-sm btn-ico" onclick="deleteCannedResponse('${c.id}')" style="padding:2px 6px"><i class="ti ti-trash"></i></button>
+      </div>`).join('');
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--err);font-size:13px">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function addCannedResponse() {
+  const title = document.getElementById('canned-title').value.trim();
+  const body = document.getElementById('canned-body').value.trim();
+  if (!title || !body) { t('Titel och text krävs', 'err'); return; }
+  try {
+    await api('/api/canned-responses', { method: 'POST', body: JSON.stringify({ title, body }) });
+    document.getElementById('canned-title').value = '';
+    document.getElementById('canned-body').value = '';
+    await loadCannedResponses();
+    t('Standardsvar tillagt');
+  } catch(e) { t(e.message, 'err'); }
+}
+
+async function deleteCannedResponse(id) {
+  if (!confirm('Ta bort standardsvaret?')) return;
+  try {
+    await api('/api/canned-responses/' + id, { method: 'DELETE' });
+    await loadCannedResponses();
+    t('Standardsvar borttaget');
+  } catch(e) { t(e.message, 'err'); }
+}
+
+async function loadBusinessHours() {
+  try {
+    const cfg = await api('/api/admin/settings');
+    const enabled = String(cfg.business_hours_enabled).toLowerCase() === 'true';
+    document.getElementById('bh-enabled').checked = enabled;
+    document.getElementById('bh-start').value = cfg.business_hours_start || '08:00';
+    document.getElementById('bh-end').value = cfg.business_hours_end || '17:00';
+    document.getElementById('bh-tz').value = cfg.business_timezone || 'Europe/Stockholm';
+    const days = new Set((cfg.business_days || '1,2,3,4,5').split(',').map(s => s.trim()));
+    document.querySelectorAll('.bh-day').forEach(cb => { cb.checked = days.has(cb.value); });
+  } catch (e) { /* tyst — inställningar kan saknas */ }
+}
+
+async function saveBusinessHours() {
+  const days = [...document.querySelectorAll('.bh-day')].filter(cb => cb.checked).map(cb => cb.value);
+  const body = {
+    business_hours_enabled: document.getElementById('bh-enabled').checked ? 'true' : 'false',
+    business_hours_start: document.getElementById('bh-start').value || '08:00',
+    business_hours_end: document.getElementById('bh-end').value || '17:00',
+    business_days: days.join(',') || '1,2,3,4,5',
+    business_timezone: document.getElementById('bh-tz').value.trim() || 'Europe/Stockholm',
+  };
+  try {
+    await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify(body) });
+    t('Arbetstider sparade');
+  } catch (e) { t(e.message, 'err'); }
 }
 
 function renderCategorySettings() {

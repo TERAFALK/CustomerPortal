@@ -98,6 +98,8 @@ def _check_customer_access(order: Order, user: User) -> None:
 
 @router.get("")
 async def list_orders(
+    skip: int = 0,
+    limit: int = 1000,
     user: User = Depends(current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -111,7 +113,7 @@ async def list_orders(
     )
     if user.role != "admin":
         q = q.where(Order.customer_id == user.customer_id)
-    q = q.order_by(Order.created_at.desc())
+    q = q.order_by(Order.created_at.desc()).offset(skip).limit(min(limit, 2000))
     result = await db.scalars(q)
     return [_order_dict(o) for o in result.all()]
 

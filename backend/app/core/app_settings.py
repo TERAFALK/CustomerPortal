@@ -15,6 +15,12 @@ _KEYS: dict[str, tuple[str, str]] = {
     "graph_sender":         ("GRAPH_SENDER",          "noreply@terafalk.com"),
     "support_inbox":        ("SUPPORT_INBOX",         "support@terafalk.com"),
     "portal_url":           ("PORTAL_URL",            ""),
+    # SLA-arbetstidskalender — när aktiv tickar SLA bara under arbetstid
+    "business_hours_enabled": ("BUSINESS_HOURS_ENABLED", "false"),
+    "business_hours_start":   ("BUSINESS_HOURS_START",   "08:00"),
+    "business_hours_end":     ("BUSINESS_HOURS_END",     "17:00"),
+    "business_days":          ("BUSINESS_DAYS",          "1,2,3,4,5"),  # ISO: mån=1 … sön=7
+    "business_timezone":      ("BUSINESS_TIMEZONE",      "Europe/Stockholm"),
     "ms_app_client_id":     ("MS_APP_CLIENT_ID",      ""),
     "ms_app_client_secret": ("MS_APP_CLIENT_SECRET",  ""),
     "ms_app_redirect_uri":  ("MS_APP_REDIRECT_URI",   ""),
