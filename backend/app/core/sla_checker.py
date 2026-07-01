@@ -36,12 +36,34 @@ async def check_sla_breaches() -> None:
             ticket.sla_breached = True
             try:
                 from app.graph.ticket_mailer import send_sla_breach_warning
-                await send_sla_breach_warning(ticket)
+                await send_sla_breach_warning(ticket, kind="resolution")
             except Exception as e:
                 logger.warning("Kunde inte skicka SLA-varning för %s: %s", ticket.ticket_number, e)
-        if breached:
+
+        # First-response-SLA — brott om deadline passerat utan första svar
+        resp_tickets = await db.scalars(
+            select(Ticket)
+            .options(selectinload(Ticket.customer), selectinload(Ticket.assigned_to))
+            .where(
+                Ticket.status.in_(OPEN_STATUSES),
+                Ticket.first_responded_at.is_(None),
+                Ticket.first_response_due_at.isnot(None),
+                Ticket.first_response_due_at <= now,
+                Ticket.response_sla_breached == False,  # noqa: E712
+            )
+        )
+        resp_breached = resp_tickets.all()
+        for ticket in resp_breached:
+            ticket.response_sla_breached = True
+            try:
+                from app.graph.ticket_mailer import send_sla_breach_warning
+                await send_sla_breach_warning(ticket, kind="response")
+            except Exception as e:
+                logger.warning("Kunde inte skicka svars-SLA-varning för %s: %s", ticket.ticket_number, e)
+
+        if breached or resp_breached:
             await db.commit()
-            logger.info("SLA-brott markerade: %d ärenden", len(breached))
+            logger.info("SLA-brott markerade: %d resolution, %d response", len(breached), len(resp_breached))
 
 
 async def auto_close_resolved_tickets() -> None:

@@ -170,7 +170,8 @@ async def _handle_message(db, raw_msg: dict, headers: dict) -> None:
         logger.info("Inkommande e-post %s matchad mot kund: %s", sender_email, customer.name)
 
     ticket_number = await _generate_number(db)
-    sla_due = await _default_sla_due(db)
+    from app.core.sla import sla_due_dates
+    response_due, resolution_due = await sla_due_dates(db, "medium")
 
     ticket = Ticket(
         id=str(uuid.uuid4()),
@@ -183,7 +184,8 @@ async def _handle_message(db, raw_msg: dict, headers: dict) -> None:
         description=body_html,
         source="email",
         source_email=sender_email,
-        sla_due_at=sla_due,
+        sla_due_at=resolution_due,
+        first_response_due_at=response_due,
     )
     db.add(ticket)
     await db.flush()
@@ -256,32 +258,8 @@ async def _add_email_reply(
 
 
 async def _generate_number(db) -> str:
-    from app.db.models import Ticket
-    from sqlalchemy import select
-    from sqlalchemy import func as sqlfunc
-
-    today = datetime.now(timezone.utc).strftime("%Y%m%d")
-    prefix = f"TF{today}-"
-    result = await db.scalar(
-        select(sqlfunc.max(Ticket.ticket_number)).where(
-            Ticket.ticket_number.like(f"{prefix}%")
-        )
-    )
-    seq = (int(result.split("-")[-1]) + 1) if result else 1
-    return f"{prefix}{seq:04d}"
-
-
-async def _default_sla_due(db) -> "datetime | None":
-    from app.db.models import TicketSlaPolicy
-    from sqlalchemy import select
-    from datetime import timedelta
-
-    policy = await db.scalar(
-        select(TicketSlaPolicy).where(TicketSlaPolicy.priority == "medium")
-    )
-    if not policy:
-        return None
-    return datetime.now(timezone.utc) + timedelta(hours=policy.resolution_hours)
+    from app.core.ticket_numbers import generate_ticket_number
+    return await generate_ticket_number(db)
 
 
 async def _get_or_create_extern_customer(db) -> "Customer":

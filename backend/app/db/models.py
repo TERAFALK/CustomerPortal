@@ -280,6 +280,15 @@ class TicketCategory(Base):
     )
 
 
+class TicketCounter(Base):
+    """Atomär daglig löpnummerräknare för ärendenummer (race-säker)."""
+
+    __tablename__ = "ticket_counters"
+
+    day: Mapped[str] = mapped_column(String, primary_key=True)  # "20260701"
+    last_seq: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
 class TicketSlaPolicy(Base):
     """SLA-tider per prioritet."""
 
@@ -331,9 +340,11 @@ class Ticket(Base):
     # E-post-källan (om ärendet skapades via e-post)
     source_email: Mapped[str | None] = mapped_column(String, nullable=True)
     source: Mapped[str] = mapped_column(String, default="portal")  # portal|email
-    # SLA
+    # SLA — resolution (sla_due_at) och first response (first_response_due_at)
     sla_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sla_breached: Mapped[bool] = mapped_column(Boolean, default=False)
+    first_response_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    response_sla_breached: Mapped[bool] = mapped_column(Boolean, default=False)
     first_responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

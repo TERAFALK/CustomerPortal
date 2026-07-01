@@ -4735,7 +4735,8 @@ function renderTicketDetail() {
     `<span class="b ${PRIO_CLS[tk.priority]||''}">${PRIO_LABEL[tk.priority]||tk.priority}</span>` +
     `<span class="b ${STATUS_CLS[tk.status]||''}">${STATUS_LABEL[tk.status]||tk.status}</span>` +
     `<span class="b b-muted">${TYPE_LABEL[tk.type]||tk.type}</span>` +
-    (tk.sla_breached ? '<span class="b" style="background:#fce8e6;color:#c5221f">SLA brutet</span>' : '');
+    (tk.sla_breached ? '<span class="b" style="background:#fce8e6;color:#c5221f">SLA brutet</span>' : '') +
+    (tk.response_sla_breached ? '<span class="b" style="background:#fef3e2;color:#b45309">Svars-SLA brutet</span>' : '');
 
   // Admin-åtgärder (merga + radera)
   const adminActions = document.getElementById('td-admin-actions');
@@ -5120,7 +5121,8 @@ function _refreshTicketMeta() {
     `<span class="b ${PRIO_CLS[tk.priority]||''}">${PRIO_LABEL[tk.priority]||tk.priority}</span>` +
     `<span class="b ${STATUS_CLS[tk.status]||''}">${STATUS_LABEL[tk.status]||tk.status}</span>` +
     `<span class="b b-muted">${TYPE_LABEL[tk.type]||tk.type}</span>` +
-    (tk.sla_breached ? '<span class="b" style="background:#fce8e6;color:#c5221f">SLA brutet</span>' : '');
+    (tk.sla_breached ? '<span class="b" style="background:#fce8e6;color:#c5221f">SLA brutet</span>' : '') +
+    (tk.response_sla_breached ? '<span class="b" style="background:#fef3e2;color:#b45309">Svars-SLA brutet</span>' : '');
   // SLA
   const slaEl = document.getElementById('td-sla-info');
   if (slaEl) slaEl.innerHTML = tk.sla_due_at

@@ -221,7 +221,7 @@ async def send_ticket_resolved(ticket) -> None:
     await _send_to_all(recipients, f"[{t.ticket_number}] Ärende löst: {t.title}", body)
 
 
-async def send_sla_breach_warning(ticket) -> None:
+async def send_sla_breach_warning(ticket, kind: str = "resolution") -> None:
     cfg = await _get_setting("ticket_sla_warning")
     if cfg and not cfg.enabled:
         return
@@ -231,14 +231,18 @@ async def send_sla_breach_warning(ticket) -> None:
         _add(recipients, t.assigned_to.email, t.assigned_to.full_name or t.assigned_to.email)
     else:
         _add(recipients, *_internal_recipient(cfg))
+
+    is_response = kind == "response"
+    label = "Svars-SLA (första svar)" if is_response else "Lösnings-SLA"
+    due = t.first_response_due_at if is_response else t.sla_due_at
     content = (
         heading("⚠️ SLA-varning")
-        + paragraph("Nedanstående ärende riskerar att bryta SLA-tiden.")
+        + paragraph(f"Nedanstående ärende har brutit {label.lower()}.")
         + info_card([
             ("Ärende", f"{t.ticket_number} — {t.title}"),
             ("Kund", t.customer.name if t.customer else "—"),
             ("Prioritet", PRIORITY_LABELS.get(t.priority, t.priority)),
-            ("SLA-tid", t.sla_due_at.strftime("%Y-%m-%d %H:%M") if t.sla_due_at else "—"),
+            (label, due.strftime("%Y-%m-%d %H:%M") if due else "—"),
         ])
         + ticket_button(t.id)
     )

@@ -10,7 +10,7 @@ from datetime import date, datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import select, update, func as sqlfunc
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -51,30 +51,14 @@ def _check_ticket_access(ticket: Ticket, user: User) -> None:
 # ── Hjälpfunktioner ────────────────────────────────────────────────────────────
 
 async def _generate_ticket_number(db: AsyncSession) -> str:
-    today = datetime.now(timezone.utc).strftime("%Y%m%d")
-    prefix = f"TF{today}-"
-    # Hämta högsta löpnummer för dagens prefix
-    result = await db.scalar(
-        select(sqlfunc.max(Ticket.ticket_number)).where(
-            Ticket.ticket_number.like(f"{prefix}%")
-        )
-    )
-    if result:
-        last_seq = int(result.split("-")[-1])
-        seq = last_seq + 1
-    else:
-        seq = 1
-    return f"{prefix}{seq:04d}"
+    from app.core.ticket_numbers import generate_ticket_number
+    return await generate_ticket_number(db)
 
 
-async def _get_sla_due(priority: str, db: AsyncSession) -> datetime | None:
-    policy = await db.scalar(
-        select(TicketSlaPolicy).where(TicketSlaPolicy.priority == priority)
-    )
-    if not policy:
-        return None
-    from datetime import timedelta
-    return datetime.now(timezone.utc) + timedelta(hours=policy.resolution_hours)
+async def _sla_dues(priority: str, db: AsyncSession) -> tuple[datetime | None, datetime | None]:
+    """(first_response_due, resolution_due) för prioriteten."""
+    from app.core.sla import sla_due_dates
+    return await sla_due_dates(db, priority)
 
 
 async def _add_history(
@@ -181,6 +165,8 @@ def _ticket_dict(ticket: Ticket, include_internals: bool = True) -> dict:
         } if ticket.created_by else None,
         "sla_due_at": ticket.sla_due_at.isoformat() if ticket.sla_due_at else None,
         "sla_breached": ticket.sla_breached,
+        "first_response_due_at": ticket.first_response_due_at.isoformat() if ticket.first_response_due_at else None,
+        "response_sla_breached": ticket.response_sla_breached,
         "first_responded_at": ticket.first_responded_at.isoformat() if ticket.first_responded_at else None,
         "resolved_at": ticket.resolved_at.isoformat() if ticket.resolved_at else None,
         "closed_at": ticket.closed_at.isoformat() if ticket.closed_at else None,
@@ -299,7 +285,7 @@ async def create_ticket(
         raise HTTPException(status_code=400, detail=f"Ogiltig prioritet: {body.priority}")
 
     ticket_number = await _generate_ticket_number(db)
-    sla_due = await _get_sla_due(body.priority, db)
+    response_due, resolution_due = await _sla_dues(body.priority, db)
 
     ticket = Ticket(
         id=str(uuid.uuid4()),
@@ -314,7 +300,8 @@ async def create_ticket(
         subcategory_id=body.subcategory_id,
         title=body.title,
         description=body.description,
-        sla_due_at=sla_due,
+        sla_due_at=resolution_due,
+        first_response_due_at=response_due,
         source="portal",
     )
     db.add(ticket)
@@ -407,7 +394,12 @@ async def update_ticket(
             raise HTTPException(status_code=400, detail="Ogiltig prioritet")
         await _add_history(db, ticket.id, user.id, "priority", ticket.priority, body.priority)
         ticket.priority = body.priority
-        ticket.sla_due_at = await _get_sla_due(body.priority, db)
+        response_due, resolution_due = await _sla_dues(body.priority, db)
+        ticket.sla_due_at = resolution_due
+        # Uppdatera first-response-deadline bara om första svaret inte redan getts
+        if ticket.first_responded_at is None:
+            ticket.first_response_due_at = response_due
+            ticket.response_sla_breached = False
 
     if body.type and body.type != ticket.type:
         if body.type not in VALID_TYPES:
@@ -458,6 +450,12 @@ async def delete_ticket(
     db: AsyncSession = Depends(get_db),
 ):
     ticket = await _get_ticket_or_404(ticket_id, db)
+    # Ta bort bilagefiler på disk så de inte blir föräldralösa
+    for att in (ticket.attachments or []):
+        try:
+            os.remove(att.file_path)
+        except OSError:
+            pass
     await db.delete(ticket)
     await db.commit()
 
