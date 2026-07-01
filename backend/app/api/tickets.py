@@ -19,7 +19,7 @@ from app.core.limiter import limiter
 from app.core.uploads import save_upload, validate_extension
 from app.db.database import get_db, AsyncSessionLocal
 from app.db.models import (
-    CustomerContact, Ticket, TicketAttachment, TicketCategory,
+    Customer, CustomerContact, Ticket, TicketAttachment, TicketCategory,
     TicketContact, TicketHistory, TicketMessage, TicketSlaPolicy,
     TicketTimeEntry, User,
 )
