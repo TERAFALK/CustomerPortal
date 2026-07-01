@@ -21,7 +21,7 @@ from app.db.database import get_db, AsyncSessionLocal
 from app.db.models import (
     Customer, CustomerContact, Ticket, TicketAttachment, TicketCategory,
     TicketContact, TicketHistory, TicketMessage, TicketSlaPolicy,
-    TicketTimeEntry, User,
+    TicketTag, TicketTimeEntry, User,
 )
 
 router = APIRouter()
@@ -96,6 +96,7 @@ async def _get_ticket_or_404(ticket_id: str, db: AsyncSession) -> Ticket:
             selectinload(Ticket.time_entries).selectinload(TicketTimeEntry.user),
             selectinload(Ticket.parent),
             selectinload(Ticket.merged_children),
+            selectinload(Ticket.tags),
         )
         .where(Ticket.id == ticket_id)
     )
@@ -174,6 +175,7 @@ def _ticket_dict(ticket: Ticket, include_internals: bool = True) -> dict:
         "updated_at": ticket.updated_at.isoformat() if ticket.updated_at else None,
         "parent_ticket_id": ticket.parent_ticket_id,
         "parent_ticket_number": ticket.parent.ticket_number if ticket.parent else None,
+        "tags": [{"id": tg.id, "name": tg.name, "color": tg.color} for tg in (ticket.tags or [])],
         "merged_children": [
             {"id": c.id, "ticket_number": c.ticket_number, "title": c.title}
             for c in (ticket.merged_children or [])
@@ -229,6 +231,7 @@ def _ticket_list_dict(t: Ticket) -> dict:
         "parent_ticket_id": t.parent_ticket_id,
         "created_at": t.created_at.isoformat(),
         "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+        "tags": [{"id": tg.id, "name": tg.name, "color": tg.color} for tg in (t.tags or [])],
         "contacts": [
             {"contact_id": tc.contact_id, "email": tc.contact.email}
             for tc in (t.contacts or []) if tc.contact
@@ -254,6 +257,7 @@ async def list_tickets(
         selectinload(Ticket.customer),
         selectinload(Ticket.assigned_to),
         selectinload(Ticket.contacts).selectinload(TicketContact.contact),
+        selectinload(Ticket.tags),
     )
     if not _is_staff(user):
         q = q.where(Ticket.customer_id == user.customer_id)
@@ -268,6 +272,7 @@ async def list_tickets(
             Ticket.ticket_number.ilike(like),
             Ticket.description.ilike(like),
             Ticket.customer.has(Customer.name.ilike(like)),
+            Ticket.tags.any(TicketTag.name.ilike(like)),
             Ticket.id.in_(msg_ids),
         ))
 
@@ -766,6 +771,57 @@ async def remove_ticket_contact(
     if not tc:
         raise HTTPException(status_code=404, detail="Kontaktkoppling saknas")
     await db.delete(tc)
+    await db.commit()
+
+
+# ── Taggar ─────────────────────────────────────────────────────────────────────
+
+class AddTagBody(BaseModel):
+    tag_id: str
+
+
+@router.post("/{ticket_id}/tags", status_code=201)
+async def add_ticket_tag(
+    ticket_id: str,
+    body: AddTagBody,
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not _is_staff(user):
+        raise HTTPException(status_code=403, detail="Åtkomst nekad")
+    from app.db.models import TicketTag, TicketTagLink
+    ticket = await _get_ticket_or_404(ticket_id, db)
+    tag = await db.get(TicketTag, body.tag_id)
+    if not tag:
+        raise HTTPException(status_code=404, detail="Tagg hittades inte")
+    exists = await db.scalar(
+        select(TicketTagLink).where(
+            TicketTagLink.ticket_id == ticket.id, TicketTagLink.tag_id == body.tag_id
+        )
+    )
+    if not exists:
+        db.add(TicketTagLink(ticket_id=ticket.id, tag_id=body.tag_id))
+        await db.commit()
+    ticket = await _get_ticket_or_404(ticket_id, db)
+    return _ticket_dict(ticket, include_internals=True)
+
+
+@router.delete("/{ticket_id}/tags/{tag_id}", status_code=204)
+async def remove_ticket_tag(
+    ticket_id: str,
+    tag_id: str,
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not _is_staff(user):
+        raise HTTPException(status_code=403, detail="Åtkomst nekad")
+    from app.db.models import TicketTagLink
+    from sqlalchemy import delete as sqldelete
+    await db.execute(
+        sqldelete(TicketTagLink).where(
+            TicketTagLink.ticket_id == ticket_id, TicketTagLink.tag_id == tag_id
+        )
+    )
     await db.commit()
 
 

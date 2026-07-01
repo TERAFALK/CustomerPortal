@@ -1228,6 +1228,15 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
             <div class="fr" style="margin:0"><label class="fl">Titel</label><input class="fi" id="canned-title" placeholder="T.ex. Bekräftelse mottagen"></div>
             <div class="fr"><label class="fl">Text</label><textarea class="fi" id="canned-body" rows="3" placeholder="Svarstext…" style="resize:vertical"></textarea></div>
             <button class="btn btn-p btn-sm" onclick="addCannedResponse()"><i class="ti ti-plus"></i> Lägg till standardsvar</button>
+
+            <div class="fsec">Taggar</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Fria etiketter för ärenden (utöver kategori).</div>
+            <div id="s-tags-list" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input class="fi" id="tag-name" placeholder="Taggnamn…" style="flex:1">
+              <input type="color" id="tag-color" value="#6b7280" style="width:42px;height:34px;padding:2px;border:1px solid var(--border);border-radius:6px;cursor:pointer">
+              <button class="btn btn-p btn-sm" onclick="addTag()"><i class="ti ti-plus"></i> Lägg till</button>
+            </div>
           </div>
 
           <!-- Användare -->
@@ -1301,6 +1310,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
             <div id="td-badges" style="display:flex;gap:5px;flex-wrap:wrap"></div>
           </div>
           <div id="td-title-header" style="font-size:17px;font-weight:700;color:var(--text);line-height:1.3"></div>
+          <div id="td-tags" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:6px"></div>
         </div>
         <div id="td-admin-actions"></div>
       </div>
@@ -4758,6 +4768,49 @@ async function _ensureTicketMeta() {
   if (currentUser?.role === 'admin' && !_cannedResponses.length) {
     try { _cannedResponses = await api('/api/canned-responses'); } catch(e) {}
   }
+  if (!_ticketTags.length) {
+    try { _ticketTags = await api('/api/ticket-settings/tags'); } catch(e) {}
+  }
+}
+
+let _ticketTags = [];
+
+function renderTicketTags() {
+  const el = document.getElementById('td-tags');
+  if (!el) return;
+  const tk = _currentTicket;
+  const isStaff = currentUser?.role === 'admin';
+  const chips = (tk.tags || []).map(tg =>
+    `<span class="b" style="background:${tg.color}22;color:${tg.color};border:1px solid ${tg.color}55;font-size:11px">
+      ${escapeHtml(tg.name)}${isStaff ? ` <span onclick="event.stopPropagation();removeTicketTag('${tg.id}')" style="cursor:pointer;font-weight:700">×</span>` : ''}
+    </span>`).join('');
+  let addCtl = '';
+  if (isStaff) {
+    const avail = _ticketTags.filter(t => !(tk.tags || []).some(x => x.id === t.id));
+    if (avail.length) {
+      addCtl = `<select onchange="addTicketTag(this.value)" style="font-size:11px;padding:1px 4px;border:1px solid var(--border);border-radius:6px">
+        <option value="">+ tagg</option>${avail.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('')}</select>`;
+    }
+  }
+  el.innerHTML = chips + addCtl;
+}
+
+async function addTicketTag(tagId) {
+  if (!tagId) return;
+  try {
+    _currentTicket = await api('/api/tickets/' + _currentTicket.id + '/tags', {
+      method: 'POST', body: JSON.stringify({ tag_id: tagId }),
+    });
+    renderTicketTags();
+  } catch(e) { t(e.message, 'err'); }
+}
+
+async function removeTicketTag(tagId) {
+  try {
+    await api('/api/tickets/' + _currentTicket.id + '/tags/' + tagId, { method: 'DELETE' });
+    _currentTicket.tags = (_currentTicket.tags || []).filter(x => x.id !== tagId);
+    renderTicketTags();
+  } catch(e) { t(e.message, 'err'); }
 }
 
 function insertCannedResponse(id) {
@@ -4792,6 +4845,7 @@ function renderTicketDetail() {
     `<span class="b b-muted">${TYPE_LABEL[tk.type]||tk.type}</span>` +
     (tk.sla_breached ? '<span class="b" style="background:#fce8e6;color:#c5221f">SLA brutet</span>' : '') +
     (tk.response_sla_breached ? '<span class="b" style="background:#fef3e2;color:#b45309">Svars-SLA brutet</span>' : '');
+  renderTicketTags();
 
   // Admin-åtgärder (merga + radera)
   const adminActions = document.getElementById('td-admin-actions');
@@ -5324,6 +5378,45 @@ async function loadTicketSettings() {
   renderSlaSettings();
   loadBusinessHours();
   loadCannedResponses();
+  loadTags();
+}
+
+async function loadTags() {
+  const el = document.getElementById('s-tags-list');
+  try {
+    _ticketTags = await api('/api/ticket-settings/tags');
+    if (!_ticketTags.length) {
+      el.innerHTML = '<div style="color:var(--muted);font-size:13px">Inga taggar än.</div>';
+      return;
+    }
+    el.innerHTML = _ticketTags.map(tg =>
+      `<span class="b" style="background:${tg.color}22;color:${tg.color};border:1px solid ${tg.color}55;font-size:12px">
+        ${escapeHtml(tg.name)} <span onclick="deleteTag('${tg.id}')" style="cursor:pointer;font-weight:700">×</span>
+      </span>`).join('');
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--err);font-size:13px">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function addTag() {
+  const name = document.getElementById('tag-name').value.trim();
+  const color = document.getElementById('tag-color').value || '#6b7280';
+  if (!name) { t('Taggnamn krävs', 'err'); return; }
+  try {
+    await api('/api/ticket-settings/tags', { method: 'POST', body: JSON.stringify({ name, color }) });
+    document.getElementById('tag-name').value = '';
+    await loadTags();
+    t('Tagg tillagd');
+  } catch(e) { t(e.message, 'err'); }
+}
+
+async function deleteTag(id) {
+  if (!confirm('Ta bort taggen? Den tas bort från alla ärenden.')) return;
+  try {
+    await api('/api/ticket-settings/tags/' + id, { method: 'DELETE' });
+    await loadTags();
+    t('Tagg borttagen');
+  } catch(e) { t(e.message, 'err'); }
 }
 
 async function loadCannedResponses() {

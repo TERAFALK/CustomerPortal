@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.auth import current_user, require_admin
 from app.db.database import get_db
-from app.db.models import TicketCategory, TicketSlaPolicy, User
+from app.db.models import TicketCategory, TicketSlaPolicy, TicketTag, User
 
 router = APIRouter()
 
@@ -163,4 +163,59 @@ async def delete_sla_policy(
     if not sla:
         raise HTTPException(status_code=404, detail="SLA-policy hittades inte")
     await db.delete(sla)
+    await db.commit()
+
+
+# ── Taggar ─────────────────────────────────────────────────────────────────────
+
+def _tag_dict(tg: TicketTag) -> dict:
+    return {"id": tg.id, "name": tg.name, "color": tg.color}
+
+
+class TagBody(BaseModel):
+    name: str
+    color: str = "#6b7280"
+
+
+@router.get("/tags")
+async def list_tags(
+    _: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    rows = await db.scalars(select(TicketTag).order_by(TicketTag.name))
+    return [_tag_dict(t) for t in rows.all()]
+
+
+@router.post("/tags", status_code=201)
+async def create_tag(
+    body: TagBody,
+    _: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Namn krävs")
+    existing = await db.scalar(select(TicketTag).where(TicketTag.name == name))
+    if existing:
+        raise HTTPException(status_code=400, detail="En tagg med det namnet finns redan")
+    tg = TicketTag(id=str(uuid.uuid4()), name=name, color=body.color or "#6b7280")
+    db.add(tg)
+    await db.commit()
+    return _tag_dict(tg)
+
+
+@router.delete("/tags/{tag_id}", status_code=204)
+async def delete_tag(
+    tag_id: str,
+    _: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.db.models import TicketTagLink
+    from sqlalchemy import delete as sqldelete
+    tg = await db.get(TicketTag, tag_id)
+    if not tg:
+        raise HTTPException(status_code=404, detail="Tagg hittades inte")
+    # Ta bort kopplingar först
+    await db.execute(sqldelete(TicketTagLink).where(TicketTagLink.tag_id == tag_id))
+    await db.delete(tg)
     await db.commit()

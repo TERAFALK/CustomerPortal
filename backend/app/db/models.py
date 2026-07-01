@@ -280,6 +280,25 @@ class TicketCategory(Base):
     )
 
 
+class TicketTag(Base):
+    """Fri etikett som kan sättas på ärenden (utöver kategori)."""
+
+    __tablename__ = "ticket_tags"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    color: Mapped[str] = mapped_column(String, default="#6b7280")
+
+
+class TicketTagLink(Base):
+    """Koppling ärende ↔ tagg (many-to-many)."""
+
+    __tablename__ = "ticket_tag_links"
+
+    ticket_id: Mapped[str] = mapped_column(String, ForeignKey("tickets.id"), primary_key=True)
+    tag_id: Mapped[str] = mapped_column(String, ForeignKey("ticket_tags.id"), primary_key=True)
+
+
 class TicketCounter(Base):
     """Atomär daglig löpnummerräknare för ärendenummer (race-säker)."""
 
@@ -365,6 +384,7 @@ class Ticket(Base):
     merged_children: Mapped[list["Ticket"]] = relationship(
         "Ticket", foreign_keys="Ticket.parent_ticket_id", back_populates="parent",
     )
+    tags: Mapped[list["TicketTag"]] = relationship(secondary="ticket_tag_links", viewonly=True)
     messages: Mapped[list["TicketMessage"]] = relationship(
         back_populates="ticket", cascade="all, delete-orphan", order_by="TicketMessage.created_at"
     )
