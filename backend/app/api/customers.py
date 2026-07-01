@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.auth import current_user, require_admin
 from app.core import app_settings
+from app.core.audit import log_action
 from app.core.integration_cache import get_cached, refresh_in_background, set_cached
 from app.core.security import encrypt
 from app.core.time_utils import now_stockholm
@@ -100,10 +101,12 @@ async def list_customers(
 async def create_customer(
     body: CustomerCreate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ):
     customer = Customer(**body.model_dump())
     db.add(customer)
+    await db.flush()
+    await log_action(db, admin, "customer.create", "customer", customer.id, f"Skapade kund {customer.name}")
     await db.commit()
     await db.refresh(customer)
     return {"id": customer.id, "name": customer.name}
@@ -171,13 +174,14 @@ async def update_customer(
     customer_id: str,
     body: CustomerUpdate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ):
     c = await db.get(Customer, customer_id)
     if not c:
         raise HTTPException(404, "Kund hittades inte")
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(c, field, value)
+    await log_action(db, admin, "customer.update", "customer", c.id, f"Uppdaterade kund {c.name}")
     await db.commit()
     await db.refresh(c)
     return {"id": c.id, "name": c.name}
@@ -187,12 +191,13 @@ async def update_customer(
 async def delete_customer(
     customer_id: str,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ):
     c = await db.get(Customer, customer_id)
     if not c:
         raise HTTPException(404, "Kund hittades inte")
     c.is_active = False
+    await log_action(db, admin, "customer.delete", "customer", c.id, f"Inaktiverade kund {c.name}")
     await db.commit()
 
 
@@ -270,13 +275,15 @@ async def create_contact(
     customer_id: str,
     body: ContactCreate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ):
     data = body.model_dump(exclude={"password"})
     c = CustomerContact(customer_id=customer_id, **data)
     db.add(c)
     await db.flush()
     await _sync_portal_user(c, body.password, customer_id, db)
+    await log_action(db, admin, "contact.create", "contact", c.id,
+                     f"Skapade kontakt {c.name} ({c.email})")
     await db.commit()
     await db.refresh(c)
     return _contact_dict(c)
@@ -288,7 +295,7 @@ async def update_contact(
     contact_id: str,
     body: ContactUpdate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ):
     c = await db.get(CustomerContact, contact_id)
     if not c or c.customer_id != customer_id:
@@ -296,6 +303,8 @@ async def update_contact(
     for field, value in body.model_dump(exclude_none=True, exclude={"password"}).items():
         setattr(c, field, value)
     await _sync_portal_user(c, body.password, customer_id, db)
+    await log_action(db, admin, "contact.update", "contact", c.id,
+                     f"Uppdaterade kontakt {c.name} ({c.email})")
     await db.commit()
     await db.refresh(c)
     return _contact_dict(c)
@@ -306,12 +315,14 @@ async def delete_contact(
     customer_id: str,
     contact_id: str,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ):
     c = await db.get(CustomerContact, contact_id)
     if not c or c.customer_id != customer_id:
         raise HTTPException(404, "Kontaktperson hittades inte")
     c.is_active = False
+    await log_action(db, admin, "contact.delete", "contact", c.id,
+                     f"Tog bort kontakt {c.name} ({c.email})")
     await db.commit()
 
 
@@ -323,7 +334,7 @@ async def upsert_credential(
     integration_type: str,
     body: CredentialUpsert,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(current_user),
+    admin: User = Depends(require_admin),
 ):
     if integration_type not in INTEGRATIONS:
         raise HTTPException(400, f"Okänd integrationstyp: {integration_type}")
@@ -350,6 +361,8 @@ async def upsert_credential(
     if body.client_secret is not None:
         cred.client_secret = encrypt(body.client_secret)
 
+    await log_action(db, admin, "credential.upsert", "integration", customer_id,
+                     f"Uppdaterade {integration_type}-credentials för kund {customer_id}")
     await db.commit()
     return {"status": "ok", "integration_type": integration_type}
 
@@ -359,7 +372,7 @@ async def delete_credential(
     customer_id: str,
     integration_type: str,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(current_user),
+    admin: User = Depends(require_admin),
 ):
     cred = await db.scalar(
         select(IntegrationCredential).where(
@@ -369,6 +382,8 @@ async def delete_credential(
     )
     if cred:
         await db.delete(cred)
+        await log_action(db, admin, "credential.delete", "integration", customer_id,
+                         f"Tog bort {integration_type}-credentials för kund {customer_id}")
         await db.commit()
 
 
@@ -377,7 +392,7 @@ async def verify_credential(
     customer_id: str,
     integration_type: str,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(current_user),
+    _: User = Depends(require_admin),
 ):
     """
     Testar att sparade credentials för en integration faktiskt fungerar.
@@ -429,7 +444,7 @@ async def get_integration_live_data(
     customer_id: str,
     integration_type: str,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(current_user),
+    user: User = Depends(current_user),
 ):
     """
     Returnerar cachad integration-data direkt om tillgänglig.
@@ -437,6 +452,8 @@ async def get_integration_live_data(
     medan gammal data ändå returneras omedelbart.
     Första anropet hämtar live (ingen cache ännu).
     """
+    if user.role == "customer" and user.customer_id != customer_id:
+        raise HTTPException(403, "Åtkomst nekad")
     if integration_type not in INTEGRATIONS:
         raise HTTPException(400, f"Okänd integrationstyp: {integration_type}")
 

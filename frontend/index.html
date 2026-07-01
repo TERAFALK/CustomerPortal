@@ -1114,6 +1114,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
             <div class="ssn-item" id="ssn-orderstatus" onclick="switchSettingsTab('orderstatus')"><i class="ti ti-list-check"></i> Orderstatus</div>
             <div class="ssn-item" id="ssn-tickets" onclick="switchSettingsTab('tickets')"><i class="ti ti-ticket"></i> Ärenden</div>
             <div class="ssn-item" id="ssn-users" onclick="switchSettingsTab('users')"><i class="ti ti-users"></i> Användare</div>
+            <div class="ssn-item" id="ssn-audit" onclick="switchSettingsTab('audit')"><i class="ti ti-history"></i> Aktivitetslogg</div>
           </div>
         </div>
         <!-- Innehåll -->
@@ -1206,6 +1207,12 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);font-
               <button class="btn btn-p btn-sm" onclick="openUserModal(null)"><i class="ti ti-plus"></i> Ny användare</button>
             </div>
             <div id="s-users-list"></div>
+          </div>
+
+          <div id="stab-audit" style="display:none">
+            <div class="fsec" style="margin-top:0">Aktivitetslogg</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Spårar känsliga admin-åtgärder (kunder, användare, kontakter, credentials, inställningar).</div>
+            <div id="audit-list"><div style="color:var(--muted);font-size:13px;padding:8px 0">Laddar...</div></div>
           </div>
 
         </div>
@@ -4273,7 +4280,7 @@ async function loadPhaseTemplates() {
 }
 
 function switchSettingsTab(tab) {
-  ['email','notifications','integrations','reports','orderstatus','tickets','users'].forEach(id => {
+  ['email','notifications','integrations','reports','orderstatus','tickets','users','audit'].forEach(id => {
     document.getElementById('stab-' + id).style.display = id === tab ? '' : 'none';
     const el = document.getElementById('ssn-' + id);
     if (el) el.classList.toggle('ssn-active', id === tab);
@@ -4281,6 +4288,29 @@ function switchSettingsTab(tab) {
   if (tab === 'tickets') loadTicketSettings();
   if (tab === 'notifications') loadNotificationSettings();
   if (tab === 'users') loadSettingsUsers();
+  if (tab === 'audit') loadAuditLog();
+}
+
+async function loadAuditLog() {
+  const el = document.getElementById('audit-list');
+  el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Laddar...</div>';
+  try {
+    const rows = await api('/api/audit?limit=200');
+    if (!rows.length) {
+      el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Inga loggposter ännu.</div>';
+      return;
+    }
+    el.innerHTML = '<table class="tbl"><thead><tr><th>Tid</th><th>Användare</th><th>Åtgärd</th><th>Detalj</th></tr></thead><tbody>'
+      + rows.map(r => `<tr>
+          <td style="white-space:nowrap;font-size:12px;color:var(--muted)">${new Date(r.created_at).toLocaleString('sv-SE')}</td>
+          <td style="font-size:12px">${escapeHtml(r.actor_email||'—')}</td>
+          <td><span class="b b-muted" style="font-family:monospace;font-size:11px">${escapeHtml(r.action)}</span></td>
+          <td style="font-size:12px">${escapeHtml(r.summary||'')}</td>
+        </tr>`).join('')
+      + '</tbody></table>';
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--err);font-size:13px;padding:8px 0">${escapeHtml(e.message)}</div>`;
+  }
 }
 
 // ── Notification settings ─────────────────────────────────────────────────

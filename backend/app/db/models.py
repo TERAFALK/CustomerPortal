@@ -502,6 +502,22 @@ class OrderContact(Base):
 # Notifikationsinställningar
 # ─────────────────────────────────────────────
 
+class AuditLog(Base):
+    """Spårar känsliga admin-åtgärder (kund-, användar- och inställningsändringar)."""
+
+    __tablename__ = "audit_logs"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    # Ingen FK — loggen ska överleva även om användaren raderas (e-post denormaliseras)
+    actor_user_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    actor_email: Mapped[str] = mapped_column(String, default="")
+    action: Mapped[str] = mapped_column(String, nullable=False, index=True)  # t.ex. "customer.create"
+    entity_type: Mapped[str] = mapped_column(String, default="")
+    entity_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    summary: Mapped[str] = mapped_column(String, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
 class NotificationSetting(Base):
     """Konfigurerbar e-postnotifiering per händelsetyp."""
 

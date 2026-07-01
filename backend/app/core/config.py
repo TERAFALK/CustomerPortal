@@ -1,14 +1,21 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_INSECURE_SECRET = "dev-secret-byt-i-produktion"
+_INSECURE_ADMIN_PW = "changeme"
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    # Driftläge — "production" tvingar fram säkra hemligheter (fail-fast vid uppstart)
+    ENVIRONMENT: str = "development"
+
     # Databas
     DATABASE_URL: str = "postgresql+asyncpg://insight:insight@db:5432/insight"
 
     # App-säkerhet
-    SECRET_KEY: str = "dev-secret-byt-i-produktion"
+    SECRET_KEY: str = _INSECURE_SECRET
     # Generera med: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
     ENCRYPTION_KEY: str = ""
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
@@ -38,6 +45,27 @@ class Settings(BaseSettings):
     REPORT_SCHEDULE_DAY: int = 1
     REPORT_SCHEDULE_HOUR: int = 8
     REPORT_SCHEDULE_MINUTE: int = 0
+
+    @model_validator(mode="after")
+    def _enforce_production_secrets(self):
+        """Vägrar starta i produktion med osäkra standardvärden."""
+        if self.ENVIRONMENT.lower() != "production":
+            return self
+        problems = []
+        if self.SECRET_KEY in ("", _INSECURE_SECRET):
+            problems.append("SECRET_KEY måste sättas till ett unikt, hemligt värde")
+        if not self.ENCRYPTION_KEY:
+            problems.append("ENCRYPTION_KEY måste sättas")
+        if self.FIRST_ADMIN_PASSWORD in ("", _INSECURE_ADMIN_PW):
+            problems.append("FIRST_ADMIN_PASSWORD måste ändras från standardvärdet")
+        if "*" in self.ALLOWED_ORIGINS:
+            problems.append("ALLOWED_ORIGINS får inte innehålla '*' i produktion")
+        if problems:
+            raise ValueError(
+                "Osäker produktionskonfiguration — rätta följande och starta om: "
+                + "; ".join(problems)
+            )
+        return self
 
 
 settings = Settings()

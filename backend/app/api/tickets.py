@@ -6,7 +6,7 @@ import os
 import uuid
 from datetime import date, datetime, timezone, timedelta
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import select, update, func as sqlfunc
@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.auth import current_user, require_admin
+from app.core.limiter import limiter
 from app.core.uploads import save_upload, validate_extension
 from app.db.database import get_db, AsyncSessionLocal
 from app.db.models import (
@@ -278,7 +279,9 @@ class CreateTicketBody(BaseModel):
 
 
 @router.post("", status_code=201)
+@limiter.limit("30/minute")
 async def create_ticket(
+    request: Request,
     body: CreateTicketBody,
     user: User = Depends(current_user),
     db: AsyncSession = Depends(get_db),
@@ -556,7 +559,9 @@ class MessageBody(BaseModel):
 
 
 @router.post("/{ticket_id}/messages", status_code=201)
+@limiter.limit("60/minute")
 async def post_message(
+    request: Request,
     ticket_id: str,
     body: MessageBody,
     user: User = Depends(current_user),
@@ -631,7 +636,9 @@ async def post_message(
 # ── Bilagor ────────────────────────────────────────────────────────────────────
 
 @router.post("/{ticket_id}/attachments", status_code=201)
+@limiter.limit("30/minute")
 async def upload_attachment(
+    request: Request,
     ticket_id: str,
     message_id: str | None = None,
     file: UploadFile = File(...),
